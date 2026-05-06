@@ -2068,7 +2068,7 @@
   <div class="mode-toggle">
     <button class="mode-btn active" id="mode-solo" onclick="setMode('solo')">혼자하기</button>
     <button class="mode-btn" id="mode-vs" onclick="setMode('vs')">🆚 대결하기</button>
-    <button class="mode-btn" id="mode-online" onclick="setMode('online')">🌐 온라인</button>
+    <button class="mode-btn" id="mode-online" onclick="onlineQuickEnter()">🌐 온라인 →</button>
   </div>
 
   <div class="ls-cards">
@@ -2742,16 +2742,19 @@ function setMode(mode) {
   document.getElementById('mode-online').classList.toggle('active', mode === 'online');
 }
 
+// 온라인 모드 즉시 진입 (메뉴 → 반 선택 화면으로 바로)
+function onlineQuickEnter() {
+  setMode('online');
+  // 연습 시작 레벨 기본값은 0 (LV1) - 어차피 대기 화면에서 다시 고를 수 있음
+  onlineEnterFlow(0);
+}
+
 function startLevel(lv) {
   if (gameMode === 'vs') {
     startVsGame(lv);
     return;
   }
-  if (gameMode === 'online') {
-    // 온라인 모드: 레벨 카드 클릭 시 그 레벨을 "연습 시작 레벨"로 사용
-    onlineEnterFlow(lv);
-    return;
-  }
+  // (온라인 모드는 더 이상 startLevel을 거치지 않음 - onlineQuickEnter로 바로 진입)
   level = lv;
   startLevel0 = lv;
   streak = 0;

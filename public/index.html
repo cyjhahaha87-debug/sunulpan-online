@@ -1,0 +1,4825 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수널판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --board: #1f3d2e;
+    --board-dark: #16291f;
+    --chalk: #f5f1e8;
+    --chalk-dim: #c9c0a8;
+    --chalk-faint: #8a8474;
+    --strike: #d9533b;
+    --strike-deep: #8b2818;
+    --ball: #6ba6d6;
+    --ball-deep: #2b5a85;
+    --reveal: #e8c468;
+    --reveal-deep: #8a6618;
+    --line: rgba(245, 241, 232, 0.18);
+    --line-strong: rgba(245, 241, 232, 0.35);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100vh;
+    font-family: 'Gowun Dodum', sans-serif;
+    color: var(--chalk);
+    background: var(--board);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.04), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(0,0,0,0.3), transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.04 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* ══════════════════════════════
+     레벨 선택 화면
+  ══════════════════════════════ */
+  #level-select {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    gap: 40px;
+  }
+
+  .ls-title {
+    text-align: center;
+  }
+  .ls-title .big {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 80px;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    color: var(--chalk);
+  }
+  .ls-title .big .accent { color: var(--strike); }
+  .ls-title .sub {
+    font-size: 22px;
+    letter-spacing: 0.35em;
+    color: var(--chalk-faint);
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  .ls-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 28px;
+    width: 100%;
+    max-width: 520px;
+  }
+  .ls-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 20px;
+    color: var(--chalk-dim);
+  }
+  .ls-swatch {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1.5px solid rgba(0,0,0,0.3);
+    flex-shrink: 0;
+  }
+  .ls-swatch.s-strike { background: var(--strike); }
+  .ls-swatch.s-ball   { background: var(--ball); }
+  .ls-swatch.s-out    { background: rgba(245,241,232,0.1); border-color: var(--line-strong); }
+
+  /* 모드 토글 (혼자하기 / 대결하기) */
+  .mode-toggle {
+    display: flex;
+    gap: 14px;
+    margin: 4px 0 6px;
+  }
+  .mode-btn {
+    background: rgba(0,0,0,0.18);
+    border: 2px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 14px 30px;
+    font-family: 'Gowun Dodum', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--chalk-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .mode-btn:hover { color: var(--chalk); border-color: var(--chalk-dim); }
+  .mode-btn.active {
+    background: rgba(232,196,104,0.15);
+    border-color: var(--reveal);
+    color: var(--reveal);
+    box-shadow: 0 0 16px rgba(232,196,104,0.2);
+  }
+
+  .ls-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    width: 100%;
+    max-width: 1080px;
+  }
+
+  .lv-card {
+    background: rgba(0,0,0,0.22);
+    border: 2px solid var(--line-strong);
+    border-radius: 16px;
+    padding: 28px 32px;
+    cursor: pointer;
+    transition: all 0.18s;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .lv-card:hover {
+    border-color: var(--reveal);
+    background: rgba(232,196,104,0.07);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+  }
+  .lv-card:active { transform: translateY(0); }
+
+  .lv-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    line-height: 1;
+    color: var(--reveal);
+    letter-spacing: 0.04em;
+    min-width: 80px;
+    text-align: center;
+  }
+  .lv-info { flex: 1; }
+  .lv-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 0.1em;
+    color: var(--chalk);
+    margin-bottom: 4px;
+  }
+  .lv-desc {
+    font-size: 18px;
+    color: var(--chalk-dim);
+    line-height: 1.5;
+  }
+  .lv-score-hint {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    color: var(--chalk-faint);
+    text-align: right;
+    line-height: 1.7;
+  }
+  .lv-score-hint span { color: var(--reveal); }
+
+
+  /* ══════════════════════════════
+     게임 화면
+  ══════════════════════════════ */
+  #game-screen { display: none; }
+
+  .stage {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 28px 24px 48px 340px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 본문: 좌(컨트롤) + 우(히스토리) */
+  .game-body {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    flex: 1;
+  }
+
+  .game-left {
+    flex: 0 0 860px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-right {
+    flex: 1;
+    min-width: 380px;
+  }
+
+  /* ─── 헤더 ─── */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 18px;
+    border-bottom: 1px dashed var(--line);
+    margin-bottom: 20px;
+  }
+  .title-block { display: flex; align-items: center; gap: 16px; }
+  .title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    letter-spacing: 0.08em;
+    color: var(--chalk);
+    line-height: 1;
+  }
+  .title .accent { color: var(--strike); }
+  .subtitle {
+    font-size: 16px;
+    letter-spacing: 0.3em;
+    color: var(--chalk-faint);
+    text-transform: uppercase;
+  }
+
+  .topbar-right { display: flex; align-items: center; gap: 16px; }
+
+  .back-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.15em;
+    font-size: 18px;
+    color: var(--chalk-faint);
+    background: transparent;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .back-btn:hover { color: var(--chalk); border-color: var(--chalk-dim); }
+
+  .level-block { text-align: right; }
+  .level-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 40px;
+    line-height: 1;
+    color: var(--reveal);
+    letter-spacing: 0.05em;
+  }
+  .level-sub {
+    font-size: 15px;
+    letter-spacing: 0.25em;
+    color: var(--chalk-faint);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ─── 스트릭 ─── */
+  .streak {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(0,0,0,0.18);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+  .streak-label {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.15em;
+    font-size: 20px;
+    color: var(--chalk-dim);
+  }
+  .streak-dots { display: flex; gap: 5px; flex: 1; }
+  .dot {
+    flex: 1;
+    height: 12px;
+    border-radius: 3px;
+    background: rgba(245,241,232,0.08);
+    border: 1px solid var(--line);
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .dot.on {
+    background: linear-gradient(180deg, #f0b440, #c98818);
+    border-color: var(--reveal-deep);
+    box-shadow: 0 0 8px rgba(232,196,104,0.5);
+  }
+  .streak-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--chalk);
+    min-width: 50px;
+    text-align: right;
+  }
+
+  /* ─── 점수판 + 범례 한 줄 래퍼 ─── */
+  .info-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .info-row > .scoreboard,
+  .info-row > .legend {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-bottom: 0;
+  }
+
+  /* ─── 점수판 ─── */
+  .scoreboard {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: rgba(0,0,0,0.18);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+  .score-label {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.15em;
+    font-size: 20px;
+    color: var(--chalk-dim);
+    white-space: nowrap;
+  }
+  .score-display { flex: 1; display: flex; align-items: baseline; gap: 8px; }
+  .score-total {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 40px;
+    line-height: 1;
+    color: var(--reveal);
+    letter-spacing: 0.05em;
+    transition: color 0.3s;
+  }
+  .score-unit {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    color: var(--chalk-faint);
+    letter-spacing: 0.2em;
+  }
+  .score-last {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    color: var(--chalk-faint);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .score-last.scored { color: #7fd99a; }
+  .score-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.1em;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .score-badge.s100 { background: rgba(232,196,104,0.2); border-color: var(--reveal); color: var(--reveal); }
+  .score-badge.s80  { background: rgba(127,217,154,0.15); border-color: #4caf7d; color: #7fd99a; }
+  .score-badge.s60  { background: rgba(107,166,214,0.15); border-color: var(--ball-deep); color: var(--ball); }
+  .score-badge.s40  { background: rgba(245,241,232,0.06); border-color: var(--line-strong); color: var(--chalk-dim); }
+
+  /* ─── 범례 ─── */
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 10px 16px;
+    background: rgba(0,0,0,0.12);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--chalk-dim);
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .swatch {
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.3);
+    flex-shrink: 0;
+  }
+  .swatch.s-strike { background: var(--strike); }
+  .swatch.s-ball   { background: var(--ball); }
+  .swatch.s-out    { background: rgba(245,241,232,0.1); border-color: var(--line-strong); }
+
+  /* ─── 입력 영역 ─── */
+  .input-section { margin: 22px 0 18px; }
+  .section-tag {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.25em;
+    font-size: 18px;
+    color: var(--chalk-faint);
+    text-align: center;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+  .cells {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+  .cell {
+    width: 108px;
+    height: 200px;
+    border: 3px solid var(--chalk-faint);
+    border-radius: 12px;
+    background: rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 96px;
+    font-weight: 500;
+    color: var(--chalk);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .cell:hover { border-color: var(--chalk-dim); }
+  .cell.active {
+    border-color: var(--reveal);
+    box-shadow: 0 0 0 4px rgba(232,196,104,0.25), inset 0 0 16px rgba(232,196,104,0.1);
+  }
+  .cell.op { color: var(--reveal); }
+  .cell.locked {
+    background: var(--strike);
+    border-color: var(--strike-deep);
+    color: #fff;
+    cursor: default;
+    box-shadow: inset 0 -3px 0 var(--strike-deep);
+  }
+  .cell.locked:hover { border-color: var(--strike-deep); }
+
+  .feedback {
+    text-align: center;
+    font-size: 22px;
+    min-height: 32px;
+    margin-top: 14px;
+    color: var(--chalk-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .feedback.win { color: #7fd99a; font-weight: 700; }
+  .feedback.err { color: var(--strike); }
+  .feedback.reveal { color: var(--reveal); }
+
+  /* ─── 키패드 ─── */
+  .keypad {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr) 1.5fr;
+    gap: 10px;
+  }
+  .key {
+    height: 72px;
+    border: 2px solid var(--line-strong);
+    border-radius: 12px;
+    background: rgba(245,241,232,0.04);
+    color: var(--chalk);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 34px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .key:hover { background: rgba(245,241,232,0.1); border-color: var(--chalk-dim); }
+  .key:active { transform: translateY(1px); }
+  .key.op { color: var(--reveal); font-size: 36px; }
+
+  .key.del {
+    background: rgba(217,83,59,0.12);
+    border-color: rgba(217,83,59,0.4);
+    color: #f0a090;
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    font-family: 'Bebas Neue', sans-serif;
+  }
+  .key.del:hover { background: rgba(217,83,59,0.2); }
+
+  .key.submit {
+    background: linear-gradient(180deg, #4a8c5e, #2f5e3e);
+    border-color: #1f4029;
+    color: #f5f1e8;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.15em;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .key.submit:hover { background: linear-gradient(180deg, #5aa070, #3a7050); }
+
+  .key.reveal-btn {
+    background: rgba(232,196,104,0.1);
+    border-color: rgba(232,196,104,0.4);
+    color: var(--reveal);
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.12em;
+    font-size: 20px;
+  }
+  .key.reveal-btn:hover { background: rgba(232,196,104,0.2); }
+  .key.reveal-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .key.hint-btn {
+    background: rgba(107,166,214,0.12);
+    border-color: rgba(107,166,214,0.45);
+    color: #b3d4ee;
+    font-family: 'Gowun Dodum', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.05em;
+  }
+  .key.hint-btn:hover { background: rgba(107,166,214,0.22); border-color: var(--ball); }
+
+  .aux-row {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .aux-row .key {
+    width: 200px;
+    height: 56px;
+  }
+
+  /* 힌트 모달의 후보 표시 */
+  .hint-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .hint-cell {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    border: 2px solid;
+  }
+  .hint-cell.candidate {
+    background: rgba(127,217,154,0.18);
+    border-color: #4caf7d;
+    color: #a8e6c0;
+  }
+  .hint-cell.eliminated {
+    background: rgba(245,241,232,0.04);
+    border-color: var(--line-strong);
+    color: var(--chalk-faint);
+    text-decoration: line-through;
+    opacity: 0.5;
+  }
+  .hint-section-title {
+    font-size: 12px;
+    color: var(--chalk-faint);
+    text-align: left;
+    margin: 12px 0 6px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── 히스토리 ─── */
+  .history {
+    padding-top: 14px;
+    border-left: 1px dashed var(--line);
+    padding-left: 20px;
+    height: 100%;
+  }
+  .history-title {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.25em;
+    font-size: 18px;
+    color: var(--chalk-faint);
+    text-align: center;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .hrow {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-start;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+  .hcell {
+    width: 38px;
+    height: 38px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    flex-shrink: 0;
+    border: 2px solid;
+  }
+  .hcell.out {
+    background: rgba(245,241,232,0.06);
+    border-color: var(--line-strong);
+    color: var(--chalk-dim);
+  }
+  .hcell.strike {
+    background: var(--strike);
+    border-color: var(--strike-deep);
+    color: #fff;
+    box-shadow: inset 0 -3px 0 var(--strike-deep);
+  }
+  .hcell.ball {
+    background: var(--ball);
+    border-color: var(--ball-deep);
+    color: #fff;
+    box-shadow: inset 0 -3px 0 var(--ball-deep);
+  }
+  .hcell.answer {
+    background: rgba(232,196,104,0.85);
+    border-color: var(--reveal-deep);
+    color: #2a1f08;
+    box-shadow: inset 0 -3px 0 var(--reveal-deep);
+  }
+  .hrow-tag {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.15em;
+    color: var(--reveal);
+    margin-right: 4px;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  /* ─── 모달 ─── */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--board);
+    border: 2px solid var(--reveal-deep);
+    border-radius: 16px;
+    padding: 36px 32px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.15em;
+    font-size: 34px;
+    color: var(--reveal);
+    margin-bottom: 14px;
+  }
+  .modal p {
+    color: var(--chalk-dim);
+    font-size: 20px;
+    line-height: 1.7;
+    margin-bottom: 28px;
+  }
+  .modal-btns { display: flex; gap: 12px; }
+  .modal-btn {
+    flex: 1;
+    padding: 16px;
+    border-radius: 10px;
+    border: 2px solid;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.15em;
+    font-size: 22px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .modal-btn.cancel {
+    background: transparent;
+    border-color: var(--line-strong);
+    color: var(--chalk-dim);
+  }
+  .modal-btn.cancel:hover { background: rgba(245,241,232,0.08); }
+  .modal-btn.confirm {
+    background: linear-gradient(180deg, #d9533b, #8b2818);
+    border-color: var(--strike-deep);
+    color: #fff;
+  }
+  .modal-btn.confirm:hover { background: linear-gradient(180deg, #e26a52, #a13520); }
+
+  /* ─── 레벨업 배너 ─── */
+  .levelup {
+    display: none;
+    margin-top: 16px;
+    padding: 16px;
+    background: linear-gradient(135deg, rgba(232,196,104,0.2), rgba(232,196,104,0.05));
+    border: 2px solid var(--reveal);
+    border-radius: 10px;
+    text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.15em;
+    color: var(--reveal);
+    font-size: 26px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .levelup.show { display: block; }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(232,196,104,0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(232,196,104,0); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+  .shake { animation: shake 0.3s; }
+  @keyframes scorepop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.28); color: #fff; }
+    100% { transform: scale(1); }
+  }
+  .score-pop { animation: scorepop 0.5s ease; }
+
+  /* ══════════════════════════════
+     좌측 사이드 패널 (크레딧 + 랭킹)
+  ══════════════════════════════ */
+  #side-panel {
+    position: fixed;
+    top: 28px;
+    bottom: 28px;
+    left: 24px;
+    width: 280px;
+    display: none;
+    flex-direction: column;
+    z-index: 50;
+  }
+  #side-panel.show { display: flex; }
+
+  .credit-box {
+    background: rgba(0,0,0,0.25);
+    border: 3px solid var(--reveal);
+    border-radius: 14px;
+    padding: 22px 18px;
+    text-align: center;
+    box-shadow: 0 0 24px rgba(232,196,104,0.15);
+  }
+  .credit-label {
+    font-family: 'Gowun Dodum', sans-serif;
+    letter-spacing: 0.05em;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--chalk);
+    margin-bottom: 12px;
+  }
+  .credit-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 80px;
+    line-height: 1;
+    color: var(--reveal);
+    letter-spacing: 0.04em;
+    transition: color 0.3s, transform 0.3s;
+  }
+  .credit-value.low { color: var(--strike); animation: pulse-warn 1s ease-in-out infinite; }
+  @keyframes pulse-warn {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  .credit-sub {
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    color: var(--chalk-faint);
+    margin-top: 6px;
+  }
+
+  .rank-bottom {
+    margin-top: auto;
+    position: relative;
+  }
+  .rank-toggle {
+    width: 100%;
+    padding: 16px 18px;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid var(--line-strong);
+    border-radius: 12px;
+    color: var(--chalk);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .rank-toggle:hover { border-color: var(--reveal); color: var(--reveal); }
+  .rank-toggle .arrow { font-size: 14px; transition: transform 0.3s; }
+  .rank-toggle.open .arrow { transform: rotate(180deg); }
+
+  /* ── 펼쳐진 랭킹 패널: 사이드 폭보다 더 넓게, 글자 크게 ── */
+  .rank-panel {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    width: 480px;
+    background: var(--board-dark);
+    border: 3px solid var(--reveal-deep);
+    border-radius: 16px;
+    padding: 24px 26px 20px;
+    box-shadow: 0 -10px 36px rgba(0,0,0,0.5);
+    display: none;
+    max-height: 78vh;
+    overflow-y: auto;
+  }
+  .rank-panel.show { display: block; }
+  .rank-panel-title {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.22em;
+    font-size: 18px;
+    color: var(--reveal);
+    text-align: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .rank-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .rank-tab {
+    flex: 1;
+    padding: 8px 0;
+    background: transparent;
+    border: 2px solid var(--line-strong);
+    border-radius: 8px;
+    color: var(--chalk-faint);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .rank-tab.active {
+    border-color: var(--reveal);
+    color: var(--reveal);
+    background: rgba(232,196,104,0.1);
+  }
+  .rank-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+  }
+  .rank-list li {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px dotted rgba(245,241,232,0.08);
+    color: var(--chalk-dim);
+    align-items: baseline;
+  }
+  .rank-list li:last-child { border-bottom: none; }
+  .rank-list .rk { color: var(--reveal); text-align: right; font-weight: 700; }
+  .rank-list .nm {
+    color: var(--chalk);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .rank-list .pt { color: var(--reveal); font-weight: 500; }
+  .rank-list li.top1 .rk { color: #f0d680; font-size: 30px; }
+  .rank-list li.top1 .nm { color: #f0d680; font-weight: 700; }
+  .rank-empty {
+    text-align: center;
+    color: var(--chalk-faint);
+    font-size: 16px;
+    padding: 36px 0;
+    font-family: 'Gowun Dodum', sans-serif;
+  }
+
+  .rank-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line);
+  }
+  .rank-action-btn {
+    flex: 1;
+    padding: 8px;
+    background: rgba(245,241,232,0.04);
+    border: 1.5px solid var(--line-strong);
+    border-radius: 7px;
+    color: var(--chalk-dim);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  .rank-action-btn:hover { color: var(--chalk); border-color: var(--chalk-dim); }
+
+  /* 레벨 선택 화면의 카드별 1위 표시 */
+  .lv-top {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+    font-size: 14px;
+    color: var(--chalk-faint);
+  }
+  .lv-top .crown { color: var(--reveal); font-size: 16px; }
+  .lv-top .nm { color: var(--chalk); font-weight: 500; }
+  .lv-top .pt { color: var(--reveal); }
+
+  /* 게임오버 / 이름입력 모달 추가 스타일 */
+  .modal.gameover h3 { color: var(--strike); }
+  .modal.success h3 { color: #7fd99a; }
+  .gameover-stats {
+    background: rgba(0,0,0,0.25);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    text-align: left;
+  }
+  .gameover-stats .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 14px;
+  }
+  .gameover-stats .row .lbl { color: var(--chalk-faint); }
+  .gameover-stats .row .val { color: var(--chalk); font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+  .gameover-stats .row .val.big { color: var(--reveal); font-size: 18px; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.05em; }
+
+  .name-input {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--chalk);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    text-align: center;
+    margin-bottom: 16px;
+    transition: border-color 0.15s;
+  }
+  .name-input:focus {
+    outline: none;
+    border-color: var(--reveal);
+  }
+  .modal-btn.primary {
+    background: linear-gradient(180deg, #4a8c5e, #2f5e3e);
+    border-color: #1f4029;
+    color: #fff;
+  }
+  .modal-btn.primary:hover { background: linear-gradient(180deg, #5aa070, #3a7050); }
+  /* ══════════════════════════════
+     좁은 화면 대응 (1366×768 노트북 등)
+  ══════════════════════════════ */
+  @media (max-width: 1440px) {
+    .stage {
+      padding: 18px 18px 24px 240px;
+    }
+    /* 사이드 패널 축소 */
+    #side-panel {
+      top: 18px;
+      bottom: 18px;
+      left: 14px;
+      width: 200px;
+    }
+    .credit-box {
+      padding: 14px 12px;
+      border-width: 2px;
+      border-radius: 12px;
+    }
+    .credit-label { font-size: 16px; margin-bottom: 6px; }
+    .credit-value { font-size: 56px; }
+    .rank-toggle {
+      padding: 12px 14px;
+      font-size: 16px;
+      border-radius: 10px;
+    }
+    .rank-panel {
+      width: 380px;
+      padding: 16px 18px 14px;
+    }
+    .rank-panel-title { font-size: 16px; margin-bottom: 10px; padding-bottom: 8px; }
+    .rank-tab { padding: 6px 0; font-size: 13px; }
+    .rank-list { font-size: 20px; }
+    .rank-list li { padding: 9px 0; gap: 12px; grid-template-columns: 40px 1fr auto; }
+    .rank-list li.top1 .rk { font-size: 22px; }
+    .rank-action-btn { padding: 6px; font-size: 11px; }
+
+    /* 게임 좌우 영역 */
+    .game-body { gap: 20px; }
+    .game-left { flex: 0 0 700px; }
+    .game-right { min-width: 280px; }
+
+    /* 헤더 */
+    .title { font-size: 32px; }
+    .subtitle { font-size: 11px; }
+    .level-num { font-size: 26px; }
+    .level-sub { font-size: 11px; }
+    .back-btn { font-size: 14px; padding: 7px 12px; }
+
+    /* 스트릭/스코어/범례 */
+    .streak { padding: 8px 12px; }
+    .streak-label { font-size: 14px; }
+    .dot { height: 9px; }
+    .streak-count { font-size: 14px; min-width: 38px; }
+    .info-row { gap: 10px; margin-bottom: 10px; }
+    .scoreboard { padding: 10px 14px; gap: 10px; }
+    .score-label { font-size: 16px; }
+    .score-total { font-size: 32px; }
+    .score-unit { font-size: 13px; }
+    .score-last { font-size: 14px; }
+    .legend { padding: 8px 12px; font-size: 12px; gap: 4px; }
+    .swatch { width: 14px; height: 14px; }
+
+    /* 입력 셀 (전자칠판용 거대 사이즈에서 노트북용으로 축소) */
+    .cells { gap: 8px; }
+    .cell {
+      width: 74px;
+      height: 110px;
+      border-width: 2px;
+      border-radius: 9px;
+      font-size: 56px;
+    }
+    .section-tag { font-size: 12px; margin-bottom: 6px; }
+    .feedback { font-size: 14px; min-height: 18px; margin-top: 8px; }
+
+    /* 키패드 - 너비 줄이고 높이 축소 */
+    .keypad {
+      max-width: 540px;
+      margin-top: 14px;
+      gap: 7px;
+    }
+    .key {
+      height: 50px;
+      font-size: 22px;
+      border-radius: 8px;
+      border-width: 1.5px;
+    }
+    .key.op { font-size: 24px; }
+    .key.del { font-size: 12px; }
+    .key.submit { font-size: 16px; letter-spacing: 0.12em; }
+    .key.reveal-btn { font-size: 15px; letter-spacing: 0.1em; }
+    .key.hint-btn { font-size: 14px; }
+    .aux-row { margin-top: 7px; }
+    .aux-row .key { width: 150px; height: 42px; }
+
+    /* 히스토리 */
+    .history { padding-top: 10px; padding-left: 14px; }
+    .history-title { font-size: 12px; margin-bottom: 8px; }
+    .hrow { gap: 3px; }
+    .hcell { width: 30px; height: 30px; font-size: 15px; border-width: 1.5px; border-radius: 5px; }
+    .hrow-tag { font-size: 11px; min-width: 26px; }
+  }
+
+  /* 더 작은 화면 (1280 이하) - 사이드 패널을 헤더 안으로 통합하거나 더 줄임 */
+  @media (max-width: 1280px) {
+    .stage { padding-left: 220px; }
+    #side-panel { width: 188px; }
+    .credit-value { font-size: 50px; }
+    .game-left { flex: 0 0 640px; }
+    .cell { width: 68px; height: 100px; font-size: 50px; }
+    .keypad { max-width: 500px; }
+    .key { height: 46px; font-size: 20px; }
+  }
+  /* ══════════════════════════════
+     대전 모드 화면
+  ══════════════════════════════ */
+  #vs-screen {
+    display: none;
+    min-height: 100vh;
+    padding: 16px;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .vs-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 0 8px;
+  }
+  .vs-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.08em;
+    color: var(--chalk);
+  }
+  .vs-title .accent { color: var(--strike); }
+  .vs-topbar .back-btn {
+    background: transparent;
+    border: 2px solid var(--line-strong);
+    color: var(--chalk-dim);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'Gowun Dodum', sans-serif;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .vs-topbar .back-btn:hover { border-color: var(--reveal); color: var(--reveal); }
+
+  /* 중앙 타이머 */
+  .vs-timer-bar {
+    text-align: center;
+    margin: 4px 0 18px;
+  }
+  .vs-timer-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.25em;
+    color: var(--chalk-faint);
+    margin-bottom: 4px;
+  }
+  .vs-timer {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 80px;
+    line-height: 1;
+    color: var(--reveal);
+    letter-spacing: 0.05em;
+    transition: color 0.3s;
+  }
+  .vs-timer.urgent {
+    color: var(--strike);
+    animation: pulse-warn 1s ease infinite;
+  }
+
+  /* 좌우 분할 */
+  .vs-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    padding: 0 12px;
+  }
+  .vs-side {
+    background: rgba(0,0,0,0.18);
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+    position: relative;
+    display: flex;
+    gap: 14px;
+  }
+  .vs-side.A { border-left: 4px solid var(--strike); }
+  .vs-side.B { border-right: 4px solid var(--ball); }
+
+  /* 게임판 (메인 영역) */
+  .vs-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  /* 점수 기준 표시 (연속/스코어 ↔ 입력셀 사이) */
+  .vs-score-rules {
+    text-align: center;
+    color: var(--chalk-dim);
+    font-family: 'Gowun Dodum', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    padding: 10px 8px;
+    background: rgba(0,0,0,0.15);
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+  }
+  .vs-score-rules .rule-label {
+    color: var(--chalk-faint);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .vs-score-rules .rule-item {
+    display: inline-block;
+    padding: 0 10px;
+  }
+  .vs-score-rules .rule-item + .rule-item {
+    border-left: 1px solid var(--line);
+  }
+  .vs-score-rules .rule-pts {
+    color: var(--reveal);
+    font-weight: 700;
+  }
+
+  /* 입력 셀이 시작되는 지점을 아래로 밀기 위한 여백 */
+  /* (점수 기준 영역이 위에 있을 때 그만큼 빼줘서 원래 위치를 유지) */
+  .vs-main .vs-cells {
+    margin-top: 30px;
+  }
+  @media (min-height: 900px) {
+    .vs-main .vs-cells { margin-top: 145px; }
+  }
+  @media (min-height: 1100px) {
+    .vs-main .vs-cells { margin-top: 245px; }
+  }
+  /* 히스토리 사이드바 */
+  .vs-history-side {
+    flex: 0 0 200px;
+    background: rgba(0,0,0,0.22);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* B팀은 히스토리가 오른쪽이라 순서 뒤집기 */
+  .vs-side.B { flex-direction: row-reverse; }
+
+  .vs-history-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: var(--chalk-faint);
+    text-align: center;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--line);
+    flex-shrink: 0;
+  }
+  .vs-history-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 2px;
+  }
+  .vs-history-list::-webkit-scrollbar { width: 4px; }
+  .vs-history-list::-webkit-scrollbar-thumb { background: var(--chalk-faint); border-radius: 2px; }
+  .vs-history-list .hrow {
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+  .vs-history-list .hcell {
+    width: 22px; height: 22px;
+    font-size: 12px;
+    border-radius: 4px;
+    border-width: 1.5px;
+  }
+
+  .vs-side-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .vs-side-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 0.1em;
+  }
+  .vs-side.A .vs-side-name { color: var(--strike); }
+  .vs-side.B .vs-side-name { color: var(--ball); }
+  .vs-side-mid {
+    text-align: center;
+    flex: 1;
+  }
+  .vs-side-lvl {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--reveal);
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-right: 8px;
+  }
+  .vs-side-lvl-sub {
+    font-family: 'Gowun Dodum', sans-serif;
+    font-size: 18px;
+    color: var(--chalk);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  /* 사이드 타이머 - 가운데 쪽에 큼직하게 */
+  .vs-side-timer {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 56px;
+    line-height: 1;
+    color: var(--reveal);
+    letter-spacing: 0.04em;
+    min-width: 110px;
+    text-align: center;
+    padding: 4px 12px;
+    border: 2px solid var(--reveal-deep);
+    border-radius: 10px;
+    background: rgba(0,0,0,0.25);
+  }
+  .vs-side-timer.urgent {
+    color: var(--strike);
+    border-color: var(--strike);
+    animation: pulse-warn 1s ease-in-out infinite;
+  }
+  .vs-side-timer.ended {
+    color: var(--chalk-faint);
+    border-color: var(--line-strong);
+    animation: none;
+  }
+
+  /* 시간 종료 오버레이 (그 팀 영역만) */
+  .vs-end-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.78);
+    backdrop-filter: blur(4px);
+    z-index: 9;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+  }
+  .vs-end-overlay.show { display: flex; }
+  .vs-end-card {
+    text-align: center;
+    padding: 24px 32px;
+  }
+  .vs-end-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 0.18em;
+    color: var(--strike);
+    margin-bottom: 18px;
+  }
+  .vs-end-score-label {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.2em;
+    font-size: 14px;
+    color: var(--chalk-faint);
+    margin-bottom: 6px;
+  }
+  .vs-end-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 80px;
+    line-height: 1;
+    color: var(--reveal);
+    margin-bottom: 18px;
+  }
+  .vs-end-wait {
+    font-family: 'Gowun Dodum', sans-serif;
+    font-size: 14px;
+    color: var(--chalk-dim);
+  }
+
+  .vs-status {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .vs-status .streak {
+    flex: 1;
+    margin-bottom: 0;
+    padding: 8px 12px;
+  }
+  .vs-status .vs-score-mini {
+    background: rgba(0,0,0,0.25);
+    border: 2px solid var(--reveal);
+    border-radius: 10px;
+    padding: 8px 16px;
+    text-align: center;
+    min-width: 100px;
+  }
+  .vs-score-mini .lbl {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--chalk-faint);
+  }
+  .vs-score-mini .val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--reveal);
+    line-height: 1;
+  }
+
+  /* 입력 셀 - 대전용은 한 행에 들어가야 하므로 작게 */
+  .vs-cells {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+  .vs-cell {
+    width: 84px;
+    height: 170px;
+    font-size: 64px;
+    border-width: 2px;
+    border-radius: 10px;
+    touch-action: manipulation;
+  }
+
+  /* 키패드 - 대전용 */
+  .vs-keypad {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr) 1.4fr;
+    gap: 7px;
+  }
+  .vs-keypad .key {
+    height: 80px;
+    font-size: 26px;
+    border-radius: 9px;
+    border-width: 1.5px;
+    touch-action: manipulation;
+  }
+  .vs-keypad .key.op { font-size: 28px; }
+  .vs-keypad .key.del { font-size: 14px; letter-spacing: 0.05em; }
+  .vs-keypad .key.submit { font-size: 17px; letter-spacing: 0.1em; }
+  .vs-keypad .key.hint-btn { font-size: 16px; }
+
+  /* 대전 모드 - 팀 내부 힌트 오버레이 (modal 디자인 재사용) */
+  .vs-hint-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(3px);
+    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    border-radius: 16px;
+  }
+  .vs-hint-overlay.show { display: flex; }
+  /* 내부 카드는 1인 모드 .modal 스타일을 따라가지만 약간 컴팩트 */
+  .vs-hint-overlay .modal {
+    background: var(--board);
+    border: 2px solid var(--reveal-deep);
+    border-radius: 12px;
+    padding: 20px 22px;
+    max-width: 320px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.5);
+  }
+  .vs-hint-overlay .modal h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.12em;
+    font-size: 18px;
+    color: var(--reveal);
+    margin-bottom: 10px;
+  }
+  .vs-hint-overlay .modal p {
+    color: var(--chalk-dim);
+    font-size: 12px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .vs-hint-overlay .hint-cell {
+    font-size: 18px;
+  }
+
+  /* 결과 오버레이 */
+  .vs-result-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(6px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .vs-result-overlay.show {
+    display: flex;
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .vs-result-card {
+    background: var(--board);
+    border: 3px solid var(--reveal);
+    border-radius: 20px;
+    padding: 36px 48px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .vs-result-overlay.win-a .vs-result-card { border-color: var(--strike); }
+  .vs-result-overlay.win-b .vs-result-card { border-color: var(--ball); }
+  .vs-result-overlay.draw .vs-result-card { border-color: var(--reveal); }
+  .vs-result-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 44px;
+    letter-spacing: 0.12em;
+    margin-bottom: 24px;
+    color: var(--reveal);
+  }
+  .vs-result-overlay.win-a .vs-result-title { color: var(--strike); }
+  .vs-result-overlay.win-b .vs-result-title { color: var(--ball); }
+  .vs-result-scores {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 24px;
+    align-items: center;
+    margin-bottom: 28px;
+  }
+  .vs-result-team {
+    text-align: center;
+  }
+  .vs-result-team .lbl {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.18em;
+    margin-bottom: 6px;
+  }
+  .vs-result-team.a .lbl { color: var(--strike); }
+  .vs-result-team.b .lbl { color: var(--ball); }
+  .vs-result-team .val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 56px;
+    color: var(--reveal);
+  }
+  .vs-result-vs {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    color: var(--chalk-faint);
+  }
+  .vs-result-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+  .vs-result-btn {
+    background: rgba(245,241,232,0.06);
+    border: 2px solid var(--line-strong);
+    color: var(--chalk);
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+  }
+  .vs-result-btn:hover { border-color: var(--reveal); color: var(--reveal); }
+  .vs-result-btn.primary {
+    background: linear-gradient(180deg, #4a8c5e, #2f5e3e);
+    border-color: #1f4029;
+    color: #fff;
+  }
+  .vs-result-btn.primary:hover { background: linear-gradient(180deg, #5aa070, #3a7050); }
+
+  @media (max-width: 1440px) {
+    .vs-cell { width: 72px; height: 140px; font-size: 54px; }
+    .vs-keypad .key { height: 64px; font-size: 22px; }
+  }
+
+  /* ══════════════════════════════
+     온라인 대전 - 반 선택
+  ══════════════════════════════ */
+  #online-class-select {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .online-class-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    gap: 40px;
+  }
+  .online-class-prompt {
+    font-size: 28px;
+    color: var(--chalk-dim);
+    letter-spacing: 0.05em;
+  }
+  .online-class-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    width: 100%;
+    max-width: 800px;
+  }
+  .online-class-card {
+    background: rgba(0,0,0,0.25);
+    border: 2px solid var(--line-strong);
+    border-radius: 16px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .online-class-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--reveal);
+    background: rgba(232,196,104,0.08);
+  }
+  .online-class-card.busy {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .online-class-card.busy:hover {
+    transform: none;
+    border-color: var(--line-strong);
+    background: rgba(0,0,0,0.25);
+  }
+  .occ-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    letter-spacing: 0.05em;
+    color: var(--chalk);
+    line-height: 1;
+  }
+  .occ-state {
+    margin-top: 12px;
+    font-size: 16px;
+    color: var(--chalk-faint);
+    letter-spacing: 0.1em;
+  }
+  .online-class-card.busy .occ-state { color: var(--strike); }
+
+  .online-conn-status {
+    color: var(--chalk-faint);
+    font-size: 14px;
+    letter-spacing: 0.1em;
+  }
+  .online-conn-status.ok { color: #6dca8b; }
+  .online-conn-status.err { color: var(--strike); }
+
+  /* ══════════════════════════════
+     온라인 대전 - 대기 화면 (연습 + 로비)
+  ══════════════════════════════ */
+  #online-waiting {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .ow-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+    padding: 16px 24px 32px;
+  }
+  .ow-lobby {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .ow-lobby-title {
+    text-align: center;
+    color: var(--chalk-faint);
+    letter-spacing: 0.2em;
+    font-size: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .ow-lobby-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ow-lobby-row {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ow-lobby-row .ow-class-label {
+    font-size: 22px;
+    color: var(--chalk);
+  }
+  .ow-lobby-row .ow-class-status {
+    font-size: 14px;
+    color: var(--chalk-faint);
+    letter-spacing: 0.05em;
+  }
+  .ow-lobby-row.waiting .ow-class-status { color: #6dca8b; }
+  .ow-lobby-row.in_match .ow-class-status { color: var(--strike); }
+  .ow-lobby-row.spectating .ow-class-status { color: var(--ball); }
+  .ow-lobby-row.empty .ow-class-status { color: var(--chalk-faint); }
+  .ow-lobby-row .ow-class-btn {
+    background: linear-gradient(180deg, var(--strike), var(--strike-deep));
+    border: none;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    font-family: inherit;
+  }
+  .ow-lobby-row .ow-class-btn.spec {
+    background: linear-gradient(180deg, var(--ball), var(--ball-deep));
+  }
+  .ow-lobby-row .ow-class-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .ow-tip {
+    margin-top: auto;
+    color: var(--chalk-faint);
+    font-size: 12px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .ow-practice {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+  }
+  .ow-practice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .ow-practice-title {
+    font-size: 18px;
+    color: var(--chalk-dim);
+    letter-spacing: 0.1em;
+  }
+  .ow-level-pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--chalk-dim);
+  }
+  .ow-level-pick select {
+    background: rgba(0,0,0,0.3);
+    color: var(--chalk);
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .ow-practice-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+  .ow-practice-body .cells {
+    margin-top: 8px;
+  }
+  .ow-practice-body .keypad { width: 100%; max-width: 720px; }
+
+  /* ══════════════════════════════
+     NEW CHALLENGER 배너
+  ══════════════════════════════ */
+  .online-match-banner {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  .online-match-banner.show {
+    display: flex;
+    animation: omb-fadein 0.3s ease;
+  }
+  @keyframes omb-fadein {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .omb-inner {
+    background: linear-gradient(180deg, #2a1a16, #1a0a08);
+    border: 3px solid var(--strike);
+    border-radius: 16px;
+    padding: 36px 48px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    box-shadow: 0 0 60px rgba(217, 83, 59, 0.4);
+    animation: omb-bounce 0.6s ease;
+  }
+  @keyframes omb-bounce {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .omb-bolt {
+    font-size: 72px;
+    animation: omb-flash 0.6s infinite alternate;
+  }
+  @keyframes omb-flash {
+    from { filter: brightness(1); }
+    to { filter: brightness(1.6); }
+  }
+  .omb-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 56px;
+    color: var(--strike);
+    letter-spacing: 0.1em;
+    line-height: 1;
+  }
+  .omb-sub {
+    font-size: 18px;
+    color: var(--chalk-dim);
+    margin-top: 6px;
+  }
+
+  /* 매치 후 선택 모달 */
+  .opm-result {
+    margin: 16px 0 22px;
+    text-align: center;
+    font-size: 20px;
+    color: var(--chalk-dim);
+  }
+  .opm-result .winner { color: var(--reveal); font-weight: 700; }
+  .opm-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* 관전 모드: vs-screen 위에 표시 */
+  .spectator-banner {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(43, 90, 133, 0.9);
+    color: white;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    z-index: 50;
+    display: none;
+  }
+  .spectator-banner.show { display: block; }
+
+  /* 관전 모드일 때 키패드 비활성화 */
+  .vs-keypad.spectator-mode .key {
+    pointer-events: none;
+    opacity: 0.4;
+  }
+
+  /* 매치 화면에 관전자 수 표시 */
+  .match-spectator-count {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(0,0,0,0.4);
+    color: var(--chalk-dim);
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ══════════════════════════════
+     READY 오버레이
+  ══════════════════════════════ */
+  .ready-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.78);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 180;
+  }
+  .ready-overlay.show { display: flex; }
+  .ready-card {
+    background: linear-gradient(180deg, #1a2a20, #0f1a14);
+    border: 2px solid var(--reveal);
+    border-radius: 18px;
+    padding: 40px 60px;
+    text-align: center;
+    min-width: 480px;
+    box-shadow: 0 0 50px rgba(232, 196, 104, 0.3);
+  }
+  .ready-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 56px;
+    color: var(--reveal);
+    letter-spacing: 0.15em;
+    line-height: 1;
+  }
+  .ready-sub {
+    margin-top: 8px;
+    color: var(--chalk-dim);
+    font-size: 16px;
+    letter-spacing: 0.1em;
+  }
+  .ready-timeout {
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    color: var(--strike);
+    letter-spacing: 0.1em;
+  }
+  .ready-status {
+    margin-top: 24px;
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+  }
+  .ready-status-cell {
+    background: rgba(0,0,0,0.35);
+    border: 2px solid var(--line-strong);
+    border-radius: 10px;
+    padding: 16px 20px;
+    min-width: 160px;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .ready-status-cell.ready {
+    border-color: #6dca8b;
+    background: rgba(109, 202, 139, 0.12);
+  }
+  .ready-status-cell .rsc-class {
+    font-size: 18px;
+    color: var(--chalk);
+    margin-bottom: 6px;
+  }
+  .ready-status-cell .rsc-state {
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    color: var(--chalk-faint);
+  }
+  .ready-status-cell.ready .rsc-state {
+    color: #6dca8b;
+  }
+  .ready-btn {
+    margin-top: 24px;
+    background: linear-gradient(180deg, #5aa070, #3a7050);
+    border: none;
+    color: white;
+    padding: 18px 36px;
+    font-size: 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    font-family: inherit;
+    transition: transform 0.1s, filter 0.1s;
+  }
+  .ready-btn:hover { filter: brightness(1.15); }
+  .ready-btn:active { transform: scale(0.97); }
+  .ready-btn.cancel {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--line-strong);
+    color: var(--chalk-dim);
+    padding: 12px 24px;
+    font-size: 14px;
+    margin-left: 12px;
+  }
+  .ready-btn.done {
+    background: rgba(109, 202, 139, 0.2);
+    border: 2px solid #6dca8b;
+    color: #6dca8b;
+    cursor: default;
+  }
+  .ready-btn.done:hover { filter: none; }
+
+  /* ══════════════════════════════
+     카운트다운 (3·2·1·GO!)
+  ══════════════════════════════ */
+  .countdown-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 190;
+    pointer-events: none;
+  }
+  .countdown-overlay.show { display: flex; }
+  .countdown-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 240px;
+    color: var(--chalk);
+    line-height: 1;
+    letter-spacing: 0;
+    animation: cd-pulse 1s ease-out;
+  }
+  .countdown-num.go {
+    font-size: 200px;
+    color: var(--reveal);
+    text-shadow: 0 0 40px rgba(232, 196, 104, 0.6);
+  }
+  .countdown-num.three { color: var(--strike); }
+  .countdown-num.two   { color: var(--ball); }
+  .countdown-num.one   { color: var(--reveal); }
+  @keyframes cd-pulse {
+    0%   { transform: scale(0.3); opacity: 0; }
+    30%  { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+</style>
+</head>
+<body>
+<script src="/socket.io/socket.io.js"></script>
+<!-- ══════════════ 레벨 선택 화면 ══════════════ -->
+<div id="level-select">
+  <div class="ls-title">
+    <div class="big">수 <span class="accent">널</span>판</div>
+    <div class="sub">Equation Nerdle</div>
+  </div>
+
+  <div class="ls-legend">
+    <div class="ls-legend-row"><div class="ls-swatch s-strike"></div>위치·기호 모두 일치</div>
+    <div class="ls-legend-row"><div class="ls-swatch s-ball"></div>기호는 맞지만 위치 다름</div>
+    <div class="ls-legend-row"><div class="ls-swatch s-out"></div>위치·기호 모두 불일치</div>
+  </div>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="mode-solo" onclick="setMode('solo')">혼자하기</button>
+    <button class="mode-btn" id="mode-vs" onclick="setMode('vs')">🆚 대결하기</button>
+    <button class="mode-btn" id="mode-online" onclick="setMode('online')">🌐 온라인</button>
+  </div>
+
+  <div class="ls-cards">
+    <div class="lv-card" onclick="startLevel(0)">
+      <div class="lv-badge">LV1</div>
+      <div class="lv-info">
+        <div class="lv-name">초급 — 5칸</div>
+        <div class="lv-desc">한 자리 수 연산 (1~9)</div>
+        <div class="lv-top" id="lv-top-0"></div>
+      </div>
+      <div class="lv-score-hint">
+        1번 → <span>100점</span><br>
+        2번 → <span>80점</span><br>
+        4번 → <span>60점</span><br>
+        5번↑ → <span>40점</span>
+      </div>
+    </div>
+
+    <div class="lv-card" onclick="startLevel(1)">
+      <div class="lv-badge">LV2</div>
+      <div class="lv-info">
+        <div class="lv-name">중급 — 6칸</div>
+        <div class="lv-desc">한·두 자리 수 혼합</div>
+        <div class="lv-top" id="lv-top-1"></div>
+      </div>
+      <div class="lv-score-hint">
+        3번 → <span>100점</span><br>
+        4번 → <span>80점</span><br>
+        6번 → <span>60점</span><br>
+        7번↑ → <span>40점</span>
+      </div>
+    </div>
+
+    <div class="lv-card" onclick="startLevel(2)">
+      <div class="lv-badge">LV3</div>
+      <div class="lv-info">
+        <div class="lv-name">고급 — 7칸</div>
+        <div class="lv-desc">두 자리 수 연산</div>
+        <div class="lv-top" id="lv-top-2"></div>
+      </div>
+      <div class="lv-score-hint">
+        5번 → <span>100점</span><br>
+        6번 → <span>80점</span><br>
+        8번 → <span>60점</span><br>
+        9번↑ → <span>40점</span>
+      </div>
+    </div>
+
+    <div class="lv-card" onclick="startLevel(3)">
+      <div class="lv-badge">LV4</div>
+      <div class="lv-info">
+        <div class="lv-name">심화 — 8칸</div>
+        <div class="lv-desc">세 자리 수 포함 연산</div>
+        <div class="lv-top" id="lv-top-3"></div>
+      </div>
+      <div class="lv-score-hint">
+        7번 → <span>100점</span><br>
+        8번 → <span>80점</span><br>
+        10번 → <span>60점</span><br>
+        11번↑ → <span>40점</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 좌측 사이드 패널 ══════════════ -->
+<div id="side-panel">
+  <div class="credit-box">
+    <div class="credit-label">남은 시도 횟수</div>
+    <div class="credit-value" id="credit-value">50</div>
+  </div>
+
+  <div class="rank-bottom">
+    <div class="rank-panel" id="rank-panel">
+      <div class="rank-panel-title">— 명예의 전당 —</div>
+      <div class="rank-tabs">
+        <button class="rank-tab" data-lv="0" onclick="switchRankTab(0)">LV1</button>
+        <button class="rank-tab" data-lv="1" onclick="switchRankTab(1)">LV2</button>
+        <button class="rank-tab" data-lv="2" onclick="switchRankTab(2)">LV3</button>
+        <button class="rank-tab" data-lv="3" onclick="switchRankTab(3)">LV4</button>
+      </div>
+      <ol class="rank-list" id="rank-list"></ol>
+      <div class="rank-actions">
+        <button class="rank-action-btn" onclick="exportRanks()">↓ 백업</button>
+        <button class="rank-action-btn" onclick="document.getElementById('rank-import').click()">↑ 복원</button>
+        <input type="file" id="rank-import" accept=".json" style="display:none" onchange="importRanks(event)">
+      </div>
+    </div>
+    <button class="rank-toggle" id="rank-toggle" onclick="toggleRankPanel()">
+      🏆 랭킹 보기 <span class="arrow">▲</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ 게임 화면 ══════════════ -->
+<div id="game-screen">
+<div class="stage">
+
+  <div class="topbar">
+    <div class="title-block">
+      <div>
+        <div class="title">수 <span class="accent">널</span>판</div>
+        <div class="subtitle">Equation Nerdle</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="back-btn" onclick="goBack()">← 레벨 선택</button>
+      <div class="level-block">
+        <div class="level-num" id="lvl-num">LV.1</div>
+        <div class="level-sub" id="lvl-sub">5칸</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="game-body">
+  <div class="game-left">
+  <div class="streak">
+    <span class="streak-label">STREAK</span>
+    <div class="streak-dots" id="streak-dots"></div>
+    <span class="streak-count" id="streak-count">0/10</span>
+  </div>
+
+  <div class="info-row">
+    <div class="scoreboard">
+      <span class="score-label">SCORE</span>
+      <div class="score-display">
+        <span class="score-total" id="score-total">0</span>
+        <span class="score-unit">PT</span>
+      </div>
+      <span class="score-last" id="score-last">—</span>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="swatch s-strike"></div>위치·기호 모두 일치</div>
+      <div class="legend-item"><div class="swatch s-ball"></div>기호는 맞지만 위치 다름</div>
+      <div class="legend-item"><div class="swatch s-out"></div>위치·기호 모두 불일치</div>
+    </div>
+  </div>
+
+  <div class="input-section">
+    <div class="section-tag">— 입력 —</div>
+    <div class="cells" id="cells"></div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+
+  <div class="keypad">
+    <button class="key" onclick="press('1')">1</button>
+    <button class="key" onclick="press('2')">2</button>
+    <button class="key" onclick="press('3')">3</button>
+    <button class="key" onclick="press('4')">4</button>
+    <button class="key" onclick="press('5')">5</button>
+    <button class="key del" onclick="del()">← 지우기</button>
+
+    <button class="key" onclick="press('6')">6</button>
+    <button class="key" onclick="press('7')">7</button>
+    <button class="key" onclick="press('8')">8</button>
+    <button class="key" onclick="press('9')">9</button>
+    <button class="key" onclick="press('0')">0</button>
+    <button class="key submit" onclick="submit()">확인 ↵</button>
+
+    <button class="key op" onclick="press('+')">+</button>
+    <button class="key op" onclick="press('-')">−</button>
+    <button class="key op" onclick="press('*')">×</button>
+    <button class="key op" onclick="press('/')">÷</button>
+    <button class="key op" onclick="press('=')">=</button>
+    <button class="key hint-btn" id="hint-btn" onclick="showHint()">💡 힌트</button>
+  </div>
+
+  <div class="aux-row">
+    <button class="key reveal-btn" id="reveal-btn" onclick="askReveal()">정답 확인</button>
+  </div>
+
+  <div class="levelup" id="levelup">🏆 LEVEL UP!</div>
+  </div><!-- /game-left -->
+
+  <div class="game-right">
+  <div class="history" id="history" style="display:none;">
+    <div class="history-title">— 이전 시도 —</div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+  </div><!-- /game-right -->
+  </div><!-- /game-body -->
+</div>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3>정답을 보시겠어요?</h3>
+    <p>연속 성공 횟수가 0으로 초기화되고<br>이번 문제는 실패로 처리됩니다.</p>
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="closeModal()">취소</button>
+      <button class="modal-btn confirm" onclick="doReveal()">정답 보기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 대전 화면 (VS) ══════════════ -->
+<div id="vs-screen">
+  <div class="vs-topbar">
+    <button class="back-btn" onclick="if(confirm('대전을 종료하시겠어요?')) vsExit();">← 종료</button>
+    <div class="vs-title">🆚 <span class="accent">대결</span> 모드</div>
+    <div style="width:80px;"></div>
+  </div>
+
+  <div class="vs-split">
+    <!-- 왼쪽 (A) -->
+    <div class="vs-side A">
+      <!-- 히스토리 사이드바 (좌측) -->
+      <div class="vs-history-side">
+        <div class="vs-history-title">— 히스토리 —</div>
+        <div class="vs-history-list" id="vs-A-history-list"></div>
+      </div>
+
+      <!-- 메인 게임판 -->
+      <div class="vs-main">
+        <div class="vs-side-header">
+          <div class="vs-side-name">🔴 왼쪽</div>
+          <div class="vs-side-mid">
+            <span class="vs-side-lvl" id="vs-A-lvl">LV.1</span>
+            <span class="vs-side-lvl-sub" id="vs-A-lvl-sub">5칸</span>
+          </div>
+          <div class="vs-side-timer" id="vs-A-timer">2:00</div>
+        </div>
+
+        <div class="vs-status">
+          <div class="streak">
+            <span class="streak-label">연속</span>
+            <div class="streak-dots" id="vs-A-streak-dots"></div>
+            <span class="streak-count" id="vs-A-streak-count">0/3</span>
+          </div>
+          <div class="vs-score-mini">
+            <div class="lbl">SCORE</div>
+            <div class="val" id="vs-A-score">0</div>
+          </div>
+        </div>
+
+        <div class="vs-score-rules" id="vs-A-rules"></div>
+
+        <div class="cells vs-cells" id="vs-A-cells"></div>
+        <div class="feedback" id="vs-A-feedback"></div>
+
+        <div class="keypad vs-keypad">
+          <button class="key" onpointerdown="vsPress('A','1')">1</button>
+          <button class="key" onpointerdown="vsPress('A','2')">2</button>
+          <button class="key" onpointerdown="vsPress('A','3')">3</button>
+          <button class="key" onpointerdown="vsPress('A','4')">4</button>
+          <button class="key" onpointerdown="vsPress('A','5')">5</button>
+          <button class="key del" onpointerdown="vsDel('A')">← 지우기</button>
+
+          <button class="key" onpointerdown="vsPress('A','6')">6</button>
+          <button class="key" onpointerdown="vsPress('A','7')">7</button>
+          <button class="key" onpointerdown="vsPress('A','8')">8</button>
+          <button class="key" onpointerdown="vsPress('A','9')">9</button>
+          <button class="key" onpointerdown="vsPress('A','0')">0</button>
+          <button class="key submit" onpointerdown="vsSubmit('A')">확인</button>
+
+          <button class="key op" onpointerdown="vsPress('A','+')">+</button>
+          <button class="key op" onpointerdown="vsPress('A','-')">−</button>
+          <button class="key op" onpointerdown="vsPress('A','*')">×</button>
+          <button class="key op" onpointerdown="vsPress('A','/')">÷</button>
+          <button class="key op" onpointerdown="vsPress('A','=')">=</button>
+          <button class="key hint-btn" onpointerdown="vsShowHint('A')">💡 힌트</button>
+        </div>
+      </div>
+
+      <!-- 힌트 오버레이 (이 팀 영역에만) -->
+      <div class="vs-hint-overlay" id="vs-A-hint">
+        <div class="modal">
+          <h3>💡 남은 후보</h3>
+          <p>아직 정답에 포함될 가능성이 있는 숫자/기호예요.</p>
+          <div id="vs-A-hint-content"></div>
+          <div class="modal-btns" style="margin-top:14px;">
+            <button class="modal-btn primary" onclick="vsCloseHint('A')">닫기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 시간 종료 오버레이 -->
+      <div class="vs-end-overlay" id="vs-A-end-overlay">
+        <div class="vs-end-card">
+          <div class="vs-end-title">🏁 시간 종료</div>
+          <div class="vs-end-score-label">최종 점수</div>
+          <div class="vs-end-score" id="vs-A-end-score">0</div>
+          <div class="vs-end-wait">상대를 기다리는 중...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽 (B) -->
+    <div class="vs-side B">
+      <!-- 히스토리 사이드바 (우측, 시각적으로) -->
+      <div class="vs-history-side">
+        <div class="vs-history-title">— 히스토리 —</div>
+        <div class="vs-history-list" id="vs-B-history-list"></div>
+      </div>
+
+      <!-- 메인 게임판 -->
+      <div class="vs-main">
+        <div class="vs-side-header">
+          <div class="vs-side-timer" id="vs-B-timer">2:00</div>
+          <div class="vs-side-mid">
+            <span class="vs-side-lvl" id="vs-B-lvl">LV.1</span>
+            <span class="vs-side-lvl-sub" id="vs-B-lvl-sub">5칸</span>
+          </div>
+          <div class="vs-side-name">🔵 오른쪽</div>
+        </div>
+
+        <div class="vs-status">
+          <div class="vs-score-mini">
+            <div class="lbl">SCORE</div>
+            <div class="val" id="vs-B-score">0</div>
+          </div>
+          <div class="streak">
+            <span class="streak-label">연속</span>
+            <div class="streak-dots" id="vs-B-streak-dots"></div>
+            <span class="streak-count" id="vs-B-streak-count">0/3</span>
+          </div>
+        </div>
+
+        <div class="vs-score-rules" id="vs-B-rules"></div>
+
+        <div class="cells vs-cells" id="vs-B-cells"></div>
+        <div class="feedback" id="vs-B-feedback"></div>
+
+        <div class="keypad vs-keypad">
+          <button class="key" onpointerdown="vsPress('B','1')">1</button>
+          <button class="key" onpointerdown="vsPress('B','2')">2</button>
+          <button class="key" onpointerdown="vsPress('B','3')">3</button>
+          <button class="key" onpointerdown="vsPress('B','4')">4</button>
+          <button class="key" onpointerdown="vsPress('B','5')">5</button>
+          <button class="key del" onpointerdown="vsDel('B')">← 지우기</button>
+
+          <button class="key" onpointerdown="vsPress('B','6')">6</button>
+          <button class="key" onpointerdown="vsPress('B','7')">7</button>
+          <button class="key" onpointerdown="vsPress('B','8')">8</button>
+          <button class="key" onpointerdown="vsPress('B','9')">9</button>
+          <button class="key" onpointerdown="vsPress('B','0')">0</button>
+          <button class="key submit" onpointerdown="vsSubmit('B')">확인</button>
+
+          <button class="key op" onpointerdown="vsPress('B','+')">+</button>
+          <button class="key op" onpointerdown="vsPress('B','-')">−</button>
+          <button class="key op" onpointerdown="vsPress('B','*')">×</button>
+          <button class="key op" onpointerdown="vsPress('B','/')">÷</button>
+          <button class="key op" onpointerdown="vsPress('B','=')">=</button>
+          <button class="key hint-btn" onpointerdown="vsShowHint('B')">💡 힌트</button>
+        </div>
+      </div>
+
+      <!-- 힌트 오버레이 (이 팀 영역에만) -->
+      <div class="vs-hint-overlay" id="vs-B-hint">
+        <div class="modal">
+          <h3>💡 남은 후보</h3>
+          <p>아직 정답에 포함될 가능성이 있는 숫자/기호예요.</p>
+          <div id="vs-B-hint-content"></div>
+          <div class="modal-btns" style="margin-top:14px;">
+            <button class="modal-btn primary" onclick="vsCloseHint('B')">닫기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 시간 종료 오버레이 -->
+      <div class="vs-end-overlay" id="vs-B-end-overlay">
+        <div class="vs-end-card">
+          <div class="vs-end-title">🏁 시간 종료</div>
+          <div class="vs-end-score-label">최종 점수</div>
+          <div class="vs-end-score" id="vs-B-end-score">0</div>
+          <div class="vs-end-wait">상대를 기다리는 중...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ READY 오버레이 (온라인 매치 시작 전) ══════════════ -->
+<div class="ready-overlay" id="ready-overlay">
+  <div class="ready-card">
+    <div class="ready-title">READY?</div>
+    <div class="ready-sub">양쪽 모두 준비되면 시작!</div>
+    <div class="ready-timeout" id="ready-timeout">⏱ 30초 안에 준비하세요</div>
+
+    <div class="ready-status">
+      <div class="ready-status-cell" id="ready-cell-a">
+        <div class="rsc-class" id="ready-class-a">🔴 1반</div>
+        <div class="rsc-state" id="ready-state-a">대기 중</div>
+      </div>
+      <div class="ready-status-cell" id="ready-cell-b">
+        <div class="rsc-class" id="ready-class-b">🔵 2반</div>
+        <div class="rsc-state" id="ready-state-b">대기 중</div>
+      </div>
+    </div>
+
+    <div>
+      <button class="ready-btn" id="ready-btn-main" onclick="onlineToggleReady()">🟢 준비완료</button>
+      <button class="ready-btn cancel" onclick="onlineCancelMatch()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 카운트다운 오버레이 ══════════════ -->
+<div class="countdown-overlay" id="countdown-overlay">
+  <div class="countdown-num" id="countdown-num">3</div>
+</div>
+
+<!-- 대전 결과 오버레이 -->
+<div class="vs-result-overlay" id="vs-result-overlay">
+  <div class="vs-result-card">
+    <div class="vs-result-title" id="vs-result-title">결과</div>
+    <div class="vs-result-scores">
+      <div class="vs-result-team a">
+        <div class="lbl">🔴 왼쪽</div>
+        <div class="val" id="vs-result-a-score">0</div>
+      </div>
+      <div class="vs-result-vs">VS</div>
+      <div class="vs-result-team b">
+        <div class="lbl">🔵 오른쪽</div>
+        <div class="val" id="vs-result-b-score">0</div>
+      </div>
+    </div>
+    <div class="vs-result-btns">
+      <button class="vs-result-btn" onclick="vsExit()">레벨 선택</button>
+      <button class="vs-result-btn primary" onclick="vsRestart()">다시 하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 온라인 - 반 선택 화면 ══════════════ -->
+<div id="online-class-select" style="display:none;">
+  <div class="vs-topbar">
+    <button class="back-btn" onclick="onlineBackToMenu()">← 메뉴</button>
+    <div class="vs-title">🌐 <span class="accent">온라인</span> 대전</div>
+    <div style="width:80px;"></div>
+  </div>
+  <div class="online-class-wrap">
+    <div class="online-class-prompt">우리 반을 선택하세요</div>
+    <div class="online-class-grid">
+      <div class="online-class-card" id="online-card-class1" onclick="onlinePickClass('class1')">
+        <div class="occ-name">1반</div>
+        <div class="occ-state" id="online-state-class1">사용 가능</div>
+      </div>
+      <div class="online-class-card" id="online-card-class2" onclick="onlinePickClass('class2')">
+        <div class="occ-name">2반</div>
+        <div class="occ-state" id="online-state-class2">사용 가능</div>
+      </div>
+      <div class="online-class-card" id="online-card-class3" onclick="onlinePickClass('class3')">
+        <div class="occ-name">3반</div>
+        <div class="occ-state" id="online-state-class3">사용 가능</div>
+      </div>
+    </div>
+    <div class="online-conn-status" id="online-conn-status">서버 연결 중...</div>
+  </div>
+</div>
+
+<!-- ══════════════ 온라인 - 대기 화면 (연습 + 로비) ══════════════ -->
+<div id="online-waiting" style="display:none;">
+  <div class="vs-topbar">
+    <button class="back-btn" onclick="onlineExitClass()">← 나가기</button>
+    <div class="vs-title">🌐 <span id="ow-class-name" class="accent">1반</span> · 대기 중</div>
+    <div style="width:80px;"></div>
+  </div>
+  <div class="ow-body">
+    <!-- 좌측: 다른 반 로비 -->
+    <div class="ow-lobby">
+      <div class="ow-lobby-title">— 다른 반 —</div>
+      <div class="ow-lobby-list" id="ow-lobby-list">
+        <!-- JS로 채움 -->
+      </div>
+      <div class="ow-tip">상대 반이 대기 중일 때 [도전] 버튼이 활성화돼요.</div>
+    </div>
+    <!-- 우측: 연습 미니 영역 -->
+    <div class="ow-practice">
+      <div class="ow-practice-header">
+        <div class="ow-practice-title">🎯 연습 중</div>
+        <div class="ow-level-pick">
+          <span style="opacity:0.7;">레벨</span>
+          <select id="ow-level-select" onchange="onlineSetPracticeLevel()">
+            <option value="0">LV1 (5칸)</option>
+            <option value="1">LV2 (6칸)</option>
+            <option value="2">LV3 (7칸)</option>
+            <option value="3">LV4 (8칸)</option>
+          </select>
+        </div>
+      </div>
+      <div class="ow-practice-body">
+        <div class="cells" id="ow-practice-cells"></div>
+        <div class="feedback" id="ow-practice-feedback"></div>
+        <div class="keypad" id="ow-practice-keypad">
+          <button class="key" onpointerdown="owPress('1')">1</button>
+          <button class="key" onpointerdown="owPress('2')">2</button>
+          <button class="key" onpointerdown="owPress('3')">3</button>
+          <button class="key" onpointerdown="owPress('4')">4</button>
+          <button class="key" onpointerdown="owPress('5')">5</button>
+          <button class="key del" onpointerdown="owDel()">← 지우기</button>
+          <button class="key" onpointerdown="owPress('6')">6</button>
+          <button class="key" onpointerdown="owPress('7')">7</button>
+          <button class="key" onpointerdown="owPress('8')">8</button>
+          <button class="key" onpointerdown="owPress('9')">9</button>
+          <button class="key" onpointerdown="owPress('0')">0</button>
+          <button class="key submit" onpointerdown="owSubmit()">확인</button>
+          <button class="key op" onpointerdown="owPress('+')">+</button>
+          <button class="key op" onpointerdown="owPress('-')">−</button>
+          <button class="key op" onpointerdown="owPress('*')">×</button>
+          <button class="key op" onpointerdown="owPress('/')">÷</button>
+          <button class="key op" onpointerdown="owPress('=')">=</button>
+          <button class="key del" onpointerdown="owNewProblem()">↻ 새문제</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 온라인 - 매칭 알림 (NEW CHALLENGER) ══════════════ -->
+<div id="online-match-banner" class="online-match-banner">
+  <div class="omb-inner">
+    <div class="omb-bolt">⚡</div>
+    <div class="omb-text">
+      <div class="omb-title">NEW CHALLENGER!</div>
+      <div class="omb-sub" id="omb-sub">상대 반이 도전했어요</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 온라인 - 매치 후 선택 (승자/패자 분기) ══════════════ -->
+<div id="online-post-match" class="modal-bg">
+  <div class="modal">
+    <h3 id="opm-title">매치 종료</h3>
+    <div class="opm-result" id="opm-result"></div>
+    <div class="opm-btns">
+      <button class="modal-btn" id="opm-btn-spectate" onclick="onlinePostMatch('spectate')" style="display:none;">관전하기</button>
+      <button class="modal-btn primary" id="opm-btn-wait" onclick="onlinePostMatch('wait')">대기 화면으로</button>
+      <button class="modal-btn" onclick="onlinePostMatch('leave')">메뉴로</button>
+    </div>
+  </div>
+</div>
+
+<!-- 게임오버 모달 -->
+<div class="modal-bg" id="gameover-modal">
+  <div class="modal gameover">
+    <h3 id="gameover-title">게임 종료</h3>
+    <div class="gameover-stats" id="gameover-stats"></div>
+
+    <div id="rank-input-area" style="display:none;">
+      <p style="margin-bottom:10px;color:var(--reveal);">🎉 명예의 전당에 등극!</p>
+      <input type="text" id="player-name" class="name-input" maxlength="12" placeholder="이름을 입력하세요" autocomplete="off">
+      <div class="modal-btns">
+        <button class="modal-btn primary" onclick="submitRank()">등록</button>
+      </div>
+    </div>
+
+    <div id="rank-skip-area" style="display:none;">
+      <div class="modal-btns">
+        <button class="modal-btn confirm" onclick="finishGame()">레벨 선택으로</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 이어하기 모달 -->
+<div class="modal-bg" id="resume-modal">
+  <div class="modal">
+    <h3>이전 게임이 있어요</h3>
+    <p>저장된 진행 상황을 이어서 하시겠어요?</p>
+    <div class="gameover-stats" id="resume-info"></div>
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="discardSave()">새로 시작</button>
+      <button class="modal-btn primary" onclick="doResume()">이어하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 힌트 모달 -->
+<div class="modal-bg" id="hint-modal">
+  <div class="modal">
+    <h3>💡 남은 후보</h3>
+    <p style="font-size:13px;margin-bottom:14px;">아직 정답에 포함될 가능성이 있는 숫자/기호예요.</p>
+    <div id="hint-content"></div>
+    <div class="modal-btns" style="margin-top:18px;">
+      <button class="modal-btn primary" onclick="closeHintModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+//  수널판 — 게임 로직
+// ════════════════════════════════════════════
+
+const DISP = { '+': '+', '-': '−', '*': '×', '/': '÷', '=': '=' };
+const OPS  = ['+', '-', '*', '/'];
+
+const LEVELS = [
+  { num: 1, slots: 5, label: '초급 · 5칸' },
+  { num: 2, slots: 6, label: '중급 · 6칸' },
+  { num: 3, slots: 7, label: '고급 · 7칸' },
+  { num: 4, slots: 8, label: '심화 · 8칸' },
+];
+
+// 레벨별 점수 기준
+// lv0(초급): 1→100, 2→80, 4→60, 5+→40
+// lv1(중급): 3→100, 4→80, 6→60, 7+→40
+// lv2(고급): 5→100, 6→80, 8→60, 9+→40
+// lv3(심화): 7→100, 8→80, 10→60, 11+→40
+const SCORE_RULES = [
+  [{ max: 1, pts: 100 }, { max: 2, pts: 80 }, { max: 4, pts: 60 }],
+  [{ max: 3, pts: 100 }, { max: 4, pts: 80 }, { max: 6, pts: 60 }],
+  [{ max: 5, pts: 100 }, { max: 6, pts: 80 }, { max: 8, pts: 60 }],
+  [{ max: 7, pts: 100 }, { max: 8, pts: 80 }, { max: 10, pts: 60 }],
+];
+
+let level = 0;
+let startLevel0 = 0;
+let streak = 0;
+let secret = [];
+let current = [];
+let activeIdx = 0;
+let won = false;
+let totalScore = 0;
+let tryCount = 0;
+let credit = 50;
+let rankTab = 0;
+let historyLog = [];
+let lockedCells = [];
+let tokenStatus = {};
+
+// ── 모드 ──
+let gameMode = 'solo'; // 'solo' | 'vs'
+
+// ── 대전 모드 전용 상태 ──
+const VS_DURATION_SEC = 120;
+const VS_LEVELUP_BONUS_SEC = 60;
+const VS_LEVELUP_STREAK = 3;
+let vsTimerId = null;
+let vsEnded = false;
+let vsStartLv = 0;
+// 각 플레이어 상태: A(왼쪽), B(오른쪽)
+const vsP = {
+  A: null, B: null,
+};
+function newVsPlayer(startLv) {
+  return {
+    level: startLv,
+    secret: [],
+    current: [],
+    activeIdx: 0,
+    won: false,
+    streak: 0,
+    totalScore: 0,
+    tryCount: 0,
+    historyLog: [],
+    lockedCells: [],
+    tokenStatus: {},
+    remainSec: VS_DURATION_SEC,
+    ended: false,
+  };
+}
+const CREDIT_INIT = 50;
+const RANK_MAX = 10;
+const RANK_KEY = 'sunulpan_ranks_v1';
+const SAVE_KEY = 'sunulpan_save_v1';
+
+// ── 유틸 ──
+function rand(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function disp(c) { return DISP[c] !== undefined ? DISP[c] : c; }
+function isOp(c) { return ['+', '-', '*', '/', '='].includes(c); }
+function digits(n) { return String(n).split(''); }
+
+// ── 화면 전환 ──
+function setMode(mode) {
+  gameMode = mode;
+  document.getElementById('mode-solo').classList.toggle('active', mode === 'solo');
+  document.getElementById('mode-vs').classList.toggle('active', mode === 'vs');
+  document.getElementById('mode-online').classList.toggle('active', mode === 'online');
+}
+
+function startLevel(lv) {
+  if (gameMode === 'vs') {
+    startVsGame(lv);
+    return;
+  }
+  if (gameMode === 'online') {
+    // 온라인 모드: 레벨 카드 클릭 시 그 레벨을 "연습 시작 레벨"로 사용
+    onlineEnterFlow(lv);
+    return;
+  }
+  level = lv;
+  startLevel0 = lv;
+  streak = 0;
+  totalScore = 0;
+  credit = CREDIT_INIT;
+  document.getElementById('level-select').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  document.getElementById('side-panel').classList.add('show');
+  closeRankPanel();
+  init();
+}
+
+function goBack() {
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('level-select').style.display = 'flex';
+  document.getElementById('side-panel').classList.remove('show');
+  closeRankPanel();
+  clearSave();
+  renderLevelSelectTops();
+}
+
+// ── 점수 계산 ──
+function calcScore(tries, lv) {
+  const useLv = (typeof lv === 'number') ? lv : level;
+  const rules = SCORE_RULES[useLv];
+  for (const r of rules) {
+    if (tries <= r.max) return r.pts;
+  }
+  return 40;
+}
+
+function scoreBadgeClass(pts) {
+  if (pts === 100) return 's100';
+  if (pts === 80)  return 's80';
+  if (pts === 60)  return 's60';
+  return 's40';
+}
+
+function scoreBadgeLabel(pts) {
+  if (pts === 100) return '퍼펙트';
+  if (pts === 80)  return '훌륭해';
+  if (pts === 60)  return '보통';
+  return '아쉬워';
+}
+
+function renderScore(earnedPts) {
+  const el = document.getElementById('score-total');
+  el.textContent = totalScore;
+  el.classList.remove('score-pop');
+  void el.offsetWidth;
+  el.classList.add('score-pop');
+
+  const lastEl = document.getElementById('score-last');
+  if (earnedPts !== null) {
+    lastEl.className = 'score-last scored';
+    lastEl.innerHTML = `+${earnedPts}pt <span class="score-badge ${scoreBadgeClass(earnedPts)}">${scoreBadgeLabel(earnedPts)}</span>`;
+  } else {
+    lastEl.className = 'score-last';
+    lastEl.textContent = '—';
+  }
+}
+
+// ── 정답 생성 ──
+function makeSecret(lv) {
+  for (let i = 0; i < 500; i++) {
+    const eq = tryMake(lv);
+    if (eq) return eq;
+  }
+  return ['2', '+', '3', '=', '5'];
+}
+
+function tryMake(lv) {
+  if (lv === 0) return makeLv1();
+  if (lv === 1) return makeLv2();
+  if (lv === 2) return makeLv3();
+  return makeLv4();
+}
+
+function makeLv1() {
+  const op = OPS[rand(0, 3)];
+  let a, b, c;
+  if (op === '+') { a = rand(1,8); b = rand(1,9-a); c = a+b; }
+  else if (op === '-') { a = rand(2,9); b = rand(1,a-1); c = a-b; }
+  else if (op === '*') {
+    const pairs = [];
+    for (let x=1;x<=9;x++) for (let y=1;y<=9;y++) if (x*y>=1&&x*y<=9) pairs.push([x,y]);
+    [a,b] = pairs[rand(0,pairs.length-1)]; c = a*b;
+  } else {
+    const divs = [];
+    for (let y=1;y<=9;y++) for (let x=y;x<=9;x++) if (x%y===0&&x/y>=1&&x/y<=9) divs.push([x,y]);
+    [a,b] = divs[rand(0,divs.length-1)]; c = a/b;
+  }
+  if (c<1||c>9) return null;
+  return [String(a), op, String(b), '=', String(c)];
+}
+
+function makeLv2() {
+  const forms = [
+    () => { const a=rand(2,9),b=rand(Math.max(2,10-a),9),c=a+b; if(c<10||c>18)return null; return [String(a),'+',String(b),'=',...digits(c)]; },
+    () => { const a=rand(2,9),b=rand(2,9),c=a*b; if(c<10||c>99)return null; return [String(a),'*',String(b),'=',...digits(c)]; },
+    () => { const a=rand(10,18),b=rand(a-9,9),c=a-b; if(c<1||c>9)return null; return [...digits(a),'-',String(b),'=',String(c)]; },
+    () => { const c=rand(2,9),b=rand(2,9),a=b*c; if(a<10||a>99)return null; return [...digits(a),'/',String(b),'=',String(c)]; },
+  ];
+  const tok = forms[rand(0,forms.length-1)]();
+  if (!tok||tok.length!==6) return null;
+  return tok;
+}
+
+function makeLv3() {
+  const forms = [
+    () => { const a=rand(10,89),b=rand(10,99-a),c=a+b; if(c<10||c>99)return null; return [...digits(a),'+',...digits(b),'=',...digits(c)]; },
+    () => { const a=rand(20,99),b=rand(10,a-10),c=a-b; if(c<10||c>99)return null; return [...digits(a),'-',...digits(b),'=',...digits(c)]; },
+    () => { const a=rand(2,9),b=rand(10,Math.floor(99/a)),c=a*b; if(c<10||c>99)return null; return [String(a),'*',...digits(b),'=',...digits(c)]; },
+    () => { const a=rand(2,9),b=rand(10,Math.floor(99/a)),c=a*b; if(c<10||c>99)return null; return [...digits(b),'*',String(a),'=',...digits(c)]; },
+    () => { const c=rand(10,49),b=rand(2,9),a=b*c; if(a<10||a>99)return null; return [...digits(a),'/',String(b),'=',...digits(c)]; },
+  ];
+  const tok = forms[rand(0,forms.length-1)]();
+  if (!tok||tok.length!==7) return null;
+  return tok;
+}
+
+function makeLv4() {
+  // 8칸 패턴 (연산자 1개)
+  // 2+1+2+1+2 = 8  → 두자리 - 두자리 = 두자리
+  // 2+1+1+1+3 = 8  → 두자리 × 한자리 = 세자리
+  // 1+1+2+1+3 = 8  → 한자리 × 두자리 = 세자리
+  // 3+1+1+1+2 = 8  → 세자리 ÷ 한자리 = 두자리
+  const forms = [
+    // 두자리 - 두자리 = 두자리
+    () => {
+      const a = rand(20,99), b = rand(10,a-10), c = a-b;
+      if (c<10||c>99) return null;
+      return [...digits(a),'-',...digits(b),'=',...digits(c)];
+    },
+    // 두자리 × 한자리 = 세자리
+    () => {
+      const a = rand(2,9);
+      const b = rand(Math.ceil(100/a), Math.floor(999/a));
+      if (b < 10 || b > 99) return null;
+      const c = a*b;
+      if (c<100||c>999) return null;
+      return [...digits(b),'*',String(a),'=',...digits(c)];
+    },
+    // 한자리 × 두자리 = 세자리
+    () => {
+      const a = rand(2,9);
+      const b = rand(Math.ceil(100/a), Math.floor(999/a));
+      if (b < 10 || b > 99) return null;
+      const c = a*b;
+      if (c<100||c>999) return null;
+      return [String(a),'*',...digits(b),'=',...digits(c)];
+    },
+    // 세자리 ÷ 한자리 = 두자리
+    () => {
+      const c = rand(10,99), b = rand(2,9), a = b*c;
+      if (a<100||a>999) return null;
+      return [...digits(a),'/',String(b),'=',...digits(c)];
+    },
+  ];
+  const tok = forms[rand(0,forms.length-1)]();
+  if (!tok||tok.length!==8) return null;
+  return tok;
+}
+
+// ── 검증 ──
+function validate(tokens) {
+  if (tokens.some(t=>t==='')) return {ok:false,msg:'모든 칸을 채워주세요.'};
+  const eqIdx = tokens.indexOf('=');
+  const eqLast = tokens.lastIndexOf('=');
+  if (eqIdx<0) return {ok:false,msg:'등호(=)가 있어야 해요.'};
+  if (eqIdx!==eqLast) return {ok:false,msg:'등호(=)는 1개만 가능해요.'};
+  const lhs = tokens.slice(0,eqIdx);
+  const rhs = tokens.slice(eqIdx+1);
+  if (!lhs.length||!rhs.length) return {ok:false,msg:'식이 올바르지 않아요.'};
+  if (lhs.filter(t=>OPS.includes(t)).length!==1) return {ok:false,msg:'등호 앞에는 연산자 1개만 가능해요.'};
+  if (rhs.some(t=>OPS.includes(t))) return {ok:false,msg:'등호 뒤에는 숫자만!'};
+  const opIdx = lhs.findIndex(t=>OPS.includes(t));
+  const numA = lhs.slice(0,opIdx).join('');
+  const op   = lhs[opIdx];
+  const numB = lhs.slice(opIdx+1).join('');
+  const numC = rhs.join('');
+  if (!numA||!numB||!numC) return {ok:false,msg:'식이 올바르지 않아요.'};
+  if (numA.length>1&&numA[0]==='0') return {ok:false,msg:'첫 자리에 0이 올 수 없어요.'};
+  if (numB.length>1&&numB[0]==='0') return {ok:false,msg:'첫 자리에 0이 올 수 없어요.'};
+  if (numC.length>1&&numC[0]==='0') return {ok:false,msg:'첫 자리에 0이 올 수 없어요.'};
+  const a=parseInt(numA,10),b=parseInt(numB,10),c=parseInt(numC,10);
+  let result;
+  if (op==='+') result=a+b;
+  else if (op==='-') result=a-b;
+  else if (op==='*') result=a*b;
+  else {
+    if (b===0) return {ok:false,msg:'0으로 나눌 수 없어요.'};
+    if (a%b!==0) return {ok:false,msg:'나누어 떨어지지 않아요.'};
+    result=a/b;
+  }
+  if (result!==c) return {ok:false,msg:'계산 결과가 달라요.'};
+  return {ok:true};
+}
+
+// ── 힌트 ──
+function getHints(guess, ans) {
+  const n = ans.length;
+  const hints = Array(n).fill('out');
+  const usedA = Array(n).fill(false);
+  const usedG = Array(n).fill(false);
+  for (let i=0;i<n;i++) {
+    if (guess[i]===ans[i]) { hints[i]='strike'; usedA[i]=usedG[i]=true; }
+  }
+  for (let i=0;i<n;i++) {
+    if (usedG[i]) continue;
+    for (let j=0;j<n;j++) {
+      if (usedA[j]) continue;
+      if (guess[i]===ans[j]) { hints[i]='ball'; usedA[j]=true; break; }
+    }
+  }
+  return hints;
+}
+
+// ── 렌더링 ──
+function init() {
+  secret = makeSecret(level);
+  current = Array(secret.length).fill('');
+  activeIdx = 0;
+  won = false;
+  tryCount = 0;
+  historyLog = [];
+  lockedCells = Array(secret.length).fill(false);
+  tokenStatus = {};
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('levelup').classList.remove('show');
+  document.getElementById('history-list').innerHTML = '';
+  document.getElementById('history').style.display = 'none';
+  document.getElementById('lvl-num').textContent = 'LV.' + LEVELS[level].num;
+  document.getElementById('lvl-sub').textContent = LEVELS[level].label;
+  document.getElementById('reveal-btn').disabled = false;
+  // 첫 active 위치는 잠금 안 된 첫 칸
+  activeIdx = firstUnlocked(0, 1);
+  renderStreak();
+  renderScore(null);
+  renderCredit();
+  renderCells();
+  saveGame();
+}
+
+// 잠긴 칸 건너뛰기 헬퍼
+function firstUnlocked(from, dir) {
+  // dir = 1 (오른쪽) 또는 -1 (왼쪽)
+  let i = from;
+  while (i >= 0 && i < current.length && lockedCells[i]) i += dir;
+  if (i < 0 || i >= current.length) return -1;
+  return i;
+}
+
+function renderCredit() {
+  const el = document.getElementById('credit-value');
+  el.textContent = credit;
+  el.classList.toggle('low', credit <= 10);
+}
+
+// ════════════════════════════════════════════
+//  랭킹 시스템
+// ════════════════════════════════════════════
+function loadRanks() {
+  try {
+    const raw = localStorage.getItem(RANK_KEY);
+    if (!raw) return [[],[],[],[]];
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data) || data.length !== 4) return [[],[],[],[]];
+    return data.map(arr => Array.isArray(arr) ? arr : []);
+  } catch (e) {
+    return [[],[],[],[]];
+  }
+}
+
+function saveRanks(ranks) {
+  try {
+    localStorage.setItem(RANK_KEY, JSON.stringify(ranks));
+  } catch (e) {
+    console.warn('랭킹 저장 실패:', e);
+  }
+}
+
+function tryAddRank(lv, name, score, startLv) {
+  const ranks = loadRanks();
+  ranks[lv].push({
+    name: name,
+    score: score,
+    startLv: startLv + 1, // 표시는 1-indexed
+    date: new Date().toISOString().slice(0, 10),
+  });
+  ranks[lv].sort((a, b) => b.score - a.score);
+  ranks[lv] = ranks[lv].slice(0, RANK_MAX);
+  saveRanks(ranks);
+}
+
+function isHighScore(lv, score) {
+  const ranks = loadRanks();
+  if (ranks[lv].length < RANK_MAX) return true;
+  return score > ranks[lv][RANK_MAX - 1].score;
+}
+
+// ── 랭킹 패널 토글 / 탭 ──
+function toggleRankPanel() {
+  const panel = document.getElementById('rank-panel');
+  const toggle = document.getElementById('rank-toggle');
+  const isOpen = panel.classList.toggle('show');
+  toggle.classList.toggle('open', isOpen);
+  if (isOpen) {
+    rankTab = level;
+    renderRankPanel();
+  }
+}
+function closeRankPanel() {
+  document.getElementById('rank-panel').classList.remove('show');
+  document.getElementById('rank-toggle').classList.remove('open');
+}
+function switchRankTab(lv) {
+  rankTab = lv;
+  renderRankPanel();
+}
+
+function renderRankPanel() {
+  const tabs = document.querySelectorAll('.rank-tab');
+  tabs.forEach(t => t.classList.toggle('active', parseInt(t.dataset.lv) === rankTab));
+  const ranks = loadRanks();
+  const list = document.getElementById('rank-list');
+  list.innerHTML = '';
+  const items = ranks[rankTab];
+  if (!items.length) {
+    list.innerHTML = '<div class="rank-empty">아직 기록이 없어요</div>';
+    return;
+  }
+  items.forEach((entry, i) => {
+    const li = document.createElement('li');
+    if (i === 0) li.classList.add('top1');
+    const safe = (entry.name || '').replace(/[<>&"']/g, c => ({
+      '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'
+    }[c]));
+    li.innerHTML = `
+      <span class="rk">${i + 1}</span>
+      <span class="nm">${safe}</span>
+      <span class="pt">${entry.score}</span>
+    `;
+    list.appendChild(li);
+  });
+}
+
+// ── 백업/복원 ──
+function exportRanks() {
+  const data = localStorage.getItem(RANK_KEY) || '[[],[],[],[]]';
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sunulpan_ranks_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importRanks(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data) || data.length !== 4) throw new Error('형식 오류');
+      // 각 레벨 정합성 체크
+      data.forEach((arr, idx) => {
+        if (!Array.isArray(arr)) throw new Error('형식 오류');
+      });
+      if (!confirm('현재 저장된 랭킹을 덮어쓸까요?')) return;
+      localStorage.setItem(RANK_KEY, JSON.stringify(data));
+      renderRankPanel();
+      renderLevelSelectTops();
+      alert('복원 완료!');
+    } catch (err) {
+      alert('파일을 읽을 수 없습니다: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // 같은 파일 재선택 가능하게
+}
+
+// ── 레벨 선택 화면 1위 표시 ──
+function renderLevelSelectTops() {
+  const ranks = loadRanks();
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('lv-top-' + i);
+    if (!el) continue;
+    if (ranks[i] && ranks[i].length > 0) {
+      const top = ranks[i][0];
+      const safe = (top.name || '').replace(/[<>&"']/g, c => ({
+        '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'
+      }[c]));
+      el.innerHTML = `<span class="crown">👑</span> <span class="nm">${safe}</span> <span class="pt">${top.score}점</span>`;
+    } else {
+      el.innerHTML = `<span style="color:var(--chalk-faint);">👑 아직 기록 없음</span>`;
+    }
+  }
+}
+
+// ════════════════════════════════════════════
+//  자동 저장 / 이어하기
+// ════════════════════════════════════════════
+function saveGame() {
+  try {
+    const state = {
+      level, startLevel0, streak, totalScore, credit,
+      secret, historyLog,
+      lockedCells, tokenStatus,
+      ts: Date.now(),
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('게임 저장 실패:', e);
+  }
+}
+
+function clearSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+}
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    // 정합성 체크
+    if (typeof s.level !== 'number' || s.level < 0 || s.level > 3) return null;
+    if (!Array.isArray(s.secret) || !s.secret.length) return null;
+    if (typeof s.credit !== 'number' || s.credit <= 0) return null;
+    return s;
+  } catch (e) {
+    return null;
+  }
+}
+
+function resumeGame(s) {
+  level = s.level;
+  startLevel0 = s.startLevel0 ?? s.level;
+  streak = s.streak || 0;
+  totalScore = s.totalScore || 0;
+  credit = s.credit;
+  secret = s.secret;
+  lockedCells = (Array.isArray(s.lockedCells) && s.lockedCells.length === secret.length)
+                  ? s.lockedCells.slice()
+                  : Array(secret.length).fill(false);
+  tokenStatus = (s.tokenStatus && typeof s.tokenStatus === 'object') ? s.tokenStatus : {};
+  // 잠긴 칸은 secret으로 채워두기
+  current = secret.map((v, i) => lockedCells[i] ? v : '');
+  activeIdx = firstUnlocked(0, 1);
+  if (activeIdx === -1) activeIdx = 0;
+  won = false;
+  tryCount = 0;
+  historyLog = [];
+
+  document.getElementById('level-select').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  document.getElementById('side-panel').classList.add('show');
+  closeRankPanel();
+
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('levelup').classList.remove('show');
+  document.getElementById('history-list').innerHTML = '';
+  document.getElementById('history').style.display = 'none';
+  document.getElementById('lvl-num').textContent = 'LV.' + LEVELS[level].num;
+  document.getElementById('lvl-sub').textContent = LEVELS[level].label;
+  document.getElementById('reveal-btn').disabled = false;
+
+  if (Array.isArray(s.historyLog)) {
+    s.historyLog.forEach(h => addHistory(h.guess, h.hints, h.isReveal));
+  }
+  tryCount = historyLog.filter(h => !h.isReveal).length;
+
+  renderStreak();
+  renderScore(null);
+  renderCredit();
+  renderCells();
+}
+
+function showResumeModal() {
+  const save = loadSave();
+  if (!save) return false;
+  const modal = document.getElementById('resume-modal');
+  const info = document.getElementById('resume-info');
+  const date = new Date(save.ts || Date.now());
+  const dateStr = `${date.getMonth()+1}/${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+  info.innerHTML = `
+    <div class="row"><span class="lbl">레벨</span><span class="val">LV${save.level + 1}</span></div>
+    <div class="row"><span class="lbl">크레딧</span><span class="val">${save.credit}</span></div>
+    <div class="row"><span class="lbl">누적 점수</span><span class="val big">${save.totalScore || 0} pt</span></div>
+    <div class="row"><span class="lbl">저장 시각</span><span class="val">${dateStr}</span></div>
+  `;
+  modal.classList.add('show');
+  return true;
+}
+
+function doResume() {
+  const save = loadSave();
+  document.getElementById('resume-modal').classList.remove('show');
+  if (save) resumeGame(save);
+}
+
+function discardSave() {
+  if (!confirm('저장된 게임을 삭제하고 새로 시작할까요?')) return;
+  clearSave();
+  document.getElementById('resume-modal').classList.remove('show');
+}
+
+// ════════════════════════════════════════════
+//  힌트
+// ════════════════════════════════════════════
+function showHint() {
+  if (won) return;
+  const numbers = ['1','2','3','4','5','6','7','8','9','0'];
+  const ops = ['+','-','*','/','='];
+  const content = document.getElementById('hint-content');
+  let html = '<div class="hint-section-title">숫자</div>';
+  html += '<div class="hint-grid">';
+  numbers.forEach(n => {
+    const status = tokenStatus[n]; // undefined | 'seen' | 'eliminated'
+    const cls = status === 'eliminated' ? 'eliminated' : 'candidate';
+    html += `<div class="hint-cell ${cls}">${n}</div>`;
+  });
+  html += '</div>';
+  html += '<div class="hint-section-title">연산자</div>';
+  html += '<div class="hint-grid" style="grid-template-columns:repeat(5,1fr);">';
+  ops.forEach(o => {
+    const status = tokenStatus[o];
+    const cls = status === 'eliminated' ? 'eliminated' : 'candidate';
+    html += `<div class="hint-cell ${cls}">${disp(o)}</div>`;
+  });
+  html += '</div>';
+  content.innerHTML = html;
+  document.getElementById('hint-modal').classList.add('show');
+}
+
+function closeHintModal() {
+  document.getElementById('hint-modal').classList.remove('show');
+}
+
+// ════════════════════════════════════════════
+//  대전 모드 (VS)
+// ════════════════════════════════════════════
+function startVsGame(lv) {
+  vsStartLv = lv;
+  vsP.A = newVsPlayer(lv);
+  vsP.B = newVsPlayer(lv);
+  vsEnded = false;
+
+  document.getElementById('level-select').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('side-panel').classList.remove('show');
+  document.getElementById('vs-screen').style.display = 'block';
+  document.getElementById('vs-result-overlay').classList.remove('show');
+  document.getElementById('vs-A-end-overlay')?.classList.remove('show');
+  document.getElementById('vs-B-end-overlay')?.classList.remove('show');
+
+  // 양쪽 첫 문제 생성
+  vsNewProblem('A');
+  vsNewProblem('B');
+  vsRenderAll();
+  vsStartTimer();
+}
+
+function vsNewProblem(side) {
+  const p = vsP[side];
+  p.secret = makeSecret(p.level);
+  p.current = Array(p.secret.length).fill('');
+  p.activeIdx = 0;
+  p.won = false;
+  p.tryCount = 0;
+  p.lockedCells = Array(p.secret.length).fill(false);
+  p.tokenStatus = {};
+  p.historyLog = [];
+  document.getElementById(`vs-${side}-hint`)?.classList.remove('show');
+}
+
+function vsStartTimer() {
+  vsUpdateTimers();
+  if (vsTimerId) clearInterval(vsTimerId);
+  vsTimerId = setInterval(() => {
+    let allEnded = true;
+    ['A', 'B'].forEach(side => {
+      const p = vsP[side];
+      if (p.ended) return;
+      p.remainSec--;
+      if (p.remainSec <= 0) {
+        p.remainSec = 0;
+        vsEndSide(side);
+      } else {
+        allEnded = false;
+      }
+    });
+    vsUpdateTimers();
+    if (allEnded) {
+      clearInterval(vsTimerId);
+      vsTimerId = null;
+      vsFinish();
+    }
+  }, 1000);
+}
+
+function vsUpdateTimers() {
+  ['A', 'B'].forEach(side => {
+    const p = vsP[side];
+    const m = Math.floor(p.remainSec / 60);
+    const s = p.remainSec % 60;
+    const text = `${m}:${String(s).padStart(2, '0')}`;
+    const el = document.getElementById(`vs-${side}-timer`);
+    if (!el) return;
+    el.textContent = text;
+    if (p.remainSec <= 10 && !p.ended) el.classList.add('urgent');
+    else el.classList.remove('urgent');
+    if (p.ended) el.classList.add('ended');
+    else el.classList.remove('ended');
+  });
+}
+
+function vsEndSide(side) {
+  const p = vsP[side];
+  if (p.ended) return;
+  p.ended = true;
+  // 해당 팀 화면에 종료 오버레이
+  const overlay = document.getElementById(`vs-${side}-end-overlay`);
+  if (overlay) {
+    document.getElementById(`vs-${side}-end-score`).textContent = p.totalScore;
+    overlay.classList.add('show');
+  }
+}
+
+function vsRenderAll() {
+  vsRenderSide('A');
+  vsRenderSide('B');
+}
+
+function vsRenderSide(side) {
+  const p = vsP[side];
+  document.getElementById(`vs-${side}-lvl`).textContent = 'LV.' + LEVELS[p.level].num;
+  document.getElementById(`vs-${side}-lvl-sub`).textContent = LEVELS[p.level].label;
+  document.getElementById(`vs-${side}-score`).textContent = p.totalScore;
+  // 점수 기준
+  vsRenderRules(side);
+  // 스트릭 점들
+  const dotsEl = document.getElementById(`vs-${side}-streak-dots`);
+  dotsEl.innerHTML = '';
+  for (let i = 0; i < VS_LEVELUP_STREAK; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < p.streak ? ' on' : '');
+    dotsEl.appendChild(d);
+  }
+  document.getElementById(`vs-${side}-streak-count`).textContent = `${p.streak}/${VS_LEVELUP_STREAK}`;
+  vsRenderCells(side);
+  vsRenderHistory(side);
+}
+
+function vsRenderRules(side) {
+  const p = vsP[side];
+  const el = document.getElementById(`vs-${side}-rules`);
+  if (!el) return;
+  const rules = SCORE_RULES[p.level];
+  // 규칙 + 마지막 fallback(40점)
+  const items = [];
+  let prev = 0;
+  for (const r of rules) {
+    const range = (r.max === prev + 1) ? `${r.max}번` : `${prev + 1}~${r.max}번`;
+    items.push(`<span class="rule-item">${range} → <span class="rule-pts">${r.pts}점</span></span>`);
+    prev = r.max;
+  }
+  items.push(`<span class="rule-item">${prev + 1}번↑ → <span class="rule-pts">40점</span></span>`);
+  el.innerHTML = `<span class="rule-label">— 득점 기준 —</span>${items.join('')}`;
+}
+
+function vsRenderCells(side) {
+  const p = vsP[side];
+  const row = document.getElementById(`vs-${side}-cells`);
+  row.innerHTML = '';
+  for (let i = 0; i < p.current.length; i++) {
+    const c = document.createElement('div');
+    const locked = p.lockedCells[i];
+    let cls = 'cell vs-cell';
+    if (isOp(p.current[i])) cls += ' op';
+    if (i === p.activeIdx && !p.won && !locked && !p.ended) cls += ' active';
+    if (locked) cls += ' locked';
+    c.className = cls;
+    c.textContent = disp(p.current[i]);
+    if (!locked) {
+      c.onpointerdown = (e) => {
+        if (!p.won && !vsEnded && !p.ended) { p.activeIdx = i; vsRenderCells(side); }
+      };
+    }
+    row.appendChild(c);
+  }
+}
+
+function vsRenderHistory(side) {
+  const p = vsP[side];
+  const list = document.getElementById(`vs-${side}-history-list`);
+  list.innerHTML = '';
+  // 최신이 위로
+  for (let i = p.historyLog.length - 1; i >= 0; i--) {
+    const h = p.historyLog[i];
+    const row = document.createElement('div');
+    row.className = 'hrow';
+    if (h.isReveal) {
+      const tag = document.createElement('span');
+      tag.className = 'hrow-tag'; tag.textContent = '정답';
+      row.appendChild(tag);
+    }
+    for (let j = 0; j < h.guess.length; j++) {
+      const c = document.createElement('div');
+      c.className = 'hcell ' + h.hints[j];
+      c.textContent = disp(h.guess[j]);
+      row.appendChild(c);
+    }
+    list.appendChild(row);
+  }
+}
+
+function vsFirstUnlocked(side, from, dir) {
+  const p = vsP[side];
+  let i = from;
+  while (i >= 0 && i < p.current.length && p.lockedCells[i]) i += dir;
+  if (i < 0 || i >= p.current.length) return -1;
+  return i;
+}
+
+function vsPress(side, v) {
+  if (vsEnded) return;
+  const p = vsP[side];
+  if (p.ended || p.won) return;
+  if (p.activeIdx < 0 || p.activeIdx >= p.current.length) return;
+  if (p.lockedCells[p.activeIdx]) return;
+  p.current[p.activeIdx] = v;
+  const next = vsFirstUnlocked(side, p.activeIdx + 1, 1);
+  if (next !== -1) p.activeIdx = next;
+  vsRenderCells(side);
+  vsClearFb(side);
+}
+
+function vsDel(side) {
+  if (vsEnded) return;
+  const p = vsP[side];
+  if (p.ended || p.won) return;
+  if (p.activeIdx < 0) return;
+  if (p.lockedCells[p.activeIdx]) {
+    const prev = vsFirstUnlocked(side, p.activeIdx - 1, -1);
+    if (prev !== -1) { p.activeIdx = prev; p.current[p.activeIdx] = ''; }
+  } else if (p.current[p.activeIdx] !== '') {
+    p.current[p.activeIdx] = '';
+  } else {
+    const prev = vsFirstUnlocked(side, p.activeIdx - 1, -1);
+    if (prev !== -1) { p.activeIdx = prev; p.current[p.activeIdx] = ''; }
+  }
+  vsRenderCells(side);
+}
+
+function vsSubmit(side) {
+  if (vsEnded) return;
+  const p = vsP[side];
+  if (p.ended || p.won) return;
+  const v = validate(p.current);
+  if (!v.ok) {
+    vsShowFb(side, v.msg, 'err');
+    const cells = document.getElementById(`vs-${side}-cells`);
+    cells.classList.remove('shake'); void cells.offsetWidth; cells.classList.add('shake');
+    return;
+  }
+  const hints = getHints(p.current, p.secret);
+  const isWin = p.current.every((c, i) => c === p.secret[i]);
+  p.tryCount++;
+
+  // 토큰 상태 갱신
+  const presentInSecret = new Set(p.secret);
+  for (let i = 0; i < p.current.length; i++) {
+    const t = p.current[i];
+    if (presentInSecret.has(t)) p.tokenStatus[t] = 'seen';
+    else if (p.tokenStatus[t] !== 'seen') p.tokenStatus[t] = 'eliminated';
+  }
+  for (let i = 0; i < hints.length; i++) {
+    if (hints[i] === 'strike') p.lockedCells[i] = true;
+  }
+
+  p.historyLog.push({ guess: p.current.slice(), hints: hints.slice(), isReveal: false });
+  vsRenderHistory(side);
+
+  if (isWin) {
+    p.won = true;
+    p.streak++;
+    const earned = calcScore(p.tryCount, p.level);
+    p.totalScore += earned;
+    if (p.streak >= VS_LEVELUP_STREAK && p.level < LEVELS.length - 1) {
+      p.streak = 0; p.level++;
+      p.remainSec += VS_LEVELUP_BONUS_SEC;
+      vsShowFb(side, `🎉 레벨 ${LEVELS[p.level].num} 승급! (+${VS_LEVELUP_BONUS_SEC}초)`, 'win');
+      vsUpdateTimers();
+    } else {
+      vsShowFb(side, `정답! +${earned}pt`, 'win');
+    }
+    vsRenderSide(side);
+    setTimeout(() => {
+      if (vsEnded || p.ended) return;
+      vsNewProblem(side);
+      vsClearFb(side);
+      vsRenderSide(side);
+    }, 1100);
+  } else {
+    const s = hints.filter(h => h === 'strike').length;
+    const b = hints.filter(h => h === 'ball').length;
+    vsShowFb(side, `${s}S · ${b}B`, '');
+    p.current = p.secret.map((v, i) => p.lockedCells[i] ? v : '');
+    p.activeIdx = vsFirstUnlocked(side, 0, 1);
+    if (p.activeIdx === -1) p.activeIdx = 0;
+    vsRenderCells(side);
+  }
+}
+
+function vsShowFb(side, msg, type) {
+  const el = document.getElementById(`vs-${side}-feedback`);
+  el.textContent = msg;
+  el.className = 'feedback' + (type ? ' ' + type : '');
+}
+function vsClearFb(side) {
+  const el = document.getElementById(`vs-${side}-feedback`);
+  el.textContent = '';
+  el.className = 'feedback';
+}
+
+function vsShowHint(side) {
+  const p = vsP[side];
+  if (p.ended || p.won || vsEnded) return;
+  const numbers = ['1','2','3','4','5','6','7','8','9','0'];
+  const ops = ['+','-','*','/','='];
+  const content = document.getElementById(`vs-${side}-hint-content`);
+  let html = '<div class="hint-section-title">숫자</div>';
+  html += '<div class="hint-grid">';
+  numbers.forEach(n => {
+    const status = p.tokenStatus[n];
+    const cls = status === 'eliminated' ? 'eliminated' : 'candidate';
+    html += `<div class="hint-cell ${cls}">${n}</div>`;
+  });
+  html += '</div>';
+  html += '<div class="hint-section-title">연산자</div>';
+  html += '<div class="hint-grid" style="grid-template-columns:repeat(5,1fr);">';
+  ops.forEach(o => {
+    const status = p.tokenStatus[o];
+    const cls = status === 'eliminated' ? 'eliminated' : 'candidate';
+    html += `<div class="hint-cell ${cls}">${disp(o)}</div>`;
+  });
+  html += '</div>';
+  content.innerHTML = html;
+  document.getElementById(`vs-${side}-hint`).classList.add('show');
+}
+
+function vsCloseHint(side) {
+  document.getElementById(`vs-${side}-hint`)?.classList.remove('show');
+}
+
+function vsFinish() {
+  vsEnded = true;
+  if (vsTimerId) { clearInterval(vsTimerId); vsTimerId = null; }
+  const a = vsP.A.totalScore;
+  const b = vsP.B.totalScore;
+  let result, resultClass;
+  if (a > b) { result = '🏆 왼쪽 팀 승리!'; resultClass = 'win-a'; }
+  else if (b > a) { result = '🏆 오른쪽 팀 승리!'; resultClass = 'win-b'; }
+  else { result = '🤝 무승부'; resultClass = 'draw'; }
+
+  const overlay = document.getElementById('vs-result-overlay');
+  document.getElementById('vs-result-title').textContent = result;
+  document.getElementById('vs-result-overlay').className = 'vs-result-overlay show ' + resultClass;
+  document.getElementById('vs-result-a-score').textContent = a;
+  document.getElementById('vs-result-b-score').textContent = b;
+}
+
+function vsExit() {
+  if (vsTimerId) { clearInterval(vsTimerId); vsTimerId = null; }
+  document.getElementById('vs-result-overlay').classList.remove('show');
+  document.getElementById('vs-A-end-overlay')?.classList.remove('show');
+  document.getElementById('vs-B-end-overlay')?.classList.remove('show');
+  document.getElementById('vs-screen').style.display = 'none';
+  document.getElementById('level-select').style.display = 'flex';
+}
+
+function vsRestart() {
+  document.getElementById('vs-result-overlay').classList.remove('show');
+  startVsGame(vsStartLv);
+}
+
+function endGame(reason) {
+  // reason: 'exhausted'(크레딧 소진) | 'clear'(레벨4 10연속)
+  const reachedLv = level; // 도달한 최고 레벨
+  const modal = document.getElementById('gameover-modal');
+  const titleEl = document.getElementById('gameover-title');
+  const statsEl = document.getElementById('gameover-stats');
+  const inputArea = document.getElementById('rank-input-area');
+  const skipArea = document.getElementById('rank-skip-area');
+
+  modal.querySelector('.modal').classList.toggle('success', reason === 'clear');
+
+  if (reason === 'clear') {
+    titleEl.textContent = '🏆 최고 레벨 클리어!';
+  } else {
+    titleEl.textContent = '⏱ 크레딧 소진';
+  }
+
+  statsEl.innerHTML = `
+    <div class="row"><span class="lbl">시작 레벨</span><span class="val">LV${startLevel0 + 1}</span></div>
+    <div class="row"><span class="lbl">도달 레벨</span><span class="val">LV${reachedLv + 1}</span></div>
+    <div class="row"><span class="lbl">최종 점수</span><span class="val big">${totalScore} pt</span></div>
+  `;
+
+  if (isHighScore(reachedLv, totalScore) && totalScore > 0) {
+    inputArea.style.display = 'block';
+    skipArea.style.display = 'none';
+    setTimeout(() => {
+      const inp = document.getElementById('player-name');
+      inp.value = '';
+      inp.focus();
+    }, 100);
+  } else {
+    inputArea.style.display = 'none';
+    skipArea.style.display = 'block';
+  }
+
+  modal.classList.add('show');
+}
+
+function submitRank() {
+  const inp = document.getElementById('player-name');
+  const name = (inp.value || '').trim();
+  if (!name) {
+    inp.focus();
+    inp.style.borderColor = 'var(--strike)';
+    setTimeout(() => inp.style.borderColor = '', 800);
+    return;
+  }
+  tryAddRank(level, name, totalScore, startLevel0);
+  finishGame();
+}
+
+function finishGame() {
+  document.getElementById('gameover-modal').classList.remove('show');
+  goBack();
+}
+
+function renderStreak() {
+  const dots = document.getElementById('streak-dots');
+  dots.innerHTML = '';
+  for (let i=0;i<10;i++) {
+    const d = document.createElement('div');
+    d.className = 'dot'+(i<streak?' on':'');
+    dots.appendChild(d);
+  }
+  document.getElementById('streak-count').textContent = streak+'/10';
+}
+
+function renderCells() {
+  const row = document.getElementById('cells');
+  row.innerHTML = '';
+  for (let i=0;i<current.length;i++) {
+    const c = document.createElement('div');
+    const locked = lockedCells[i];
+    let cls = 'cell';
+    if (isOp(current[i])) cls += ' op';
+    if (i===activeIdx && !won && !locked) cls += ' active';
+    if (locked) cls += ' locked';
+    c.className = cls;
+    c.textContent = disp(current[i]);
+    if (!locked) {
+      c.onclick = () => { if (!won) { activeIdx=i; renderCells(); } };
+    }
+    row.appendChild(c);
+  }
+}
+
+function press(v) {
+  if (won) return;
+  if (activeIdx<0 || activeIdx>=current.length) return;
+  if (lockedCells[activeIdx]) return; // 잠긴 칸은 입력 불가 (방어)
+  current[activeIdx] = v;
+  // 다음 잠금 안 된 칸으로 이동
+  const next = firstUnlocked(activeIdx+1, 1);
+  if (next !== -1) activeIdx = next;
+  renderCells();
+  document.getElementById('feedback').textContent='';
+  document.getElementById('feedback').className='feedback';
+}
+
+function del() {
+  if (won) return;
+  if (activeIdx<0) return;
+  if (lockedCells[activeIdx]) {
+    // 현재 칸이 잠겨있으면 이전 잠금 안 된 칸으로
+    const prev = firstUnlocked(activeIdx-1, -1);
+    if (prev !== -1) { activeIdx = prev; current[activeIdx]=''; }
+  } else if (current[activeIdx]!=='') {
+    current[activeIdx]='';
+  } else {
+    const prev = firstUnlocked(activeIdx-1, -1);
+    if (prev !== -1) { activeIdx = prev; current[activeIdx]=''; }
+  }
+  renderCells();
+}
+
+function submit() {
+  if (won) return;
+  const v = validate(current);
+  if (!v.ok) {
+    showFb(v.msg,'err');
+    const cells = document.getElementById('cells');
+    cells.classList.remove('shake'); void cells.offsetWidth; cells.classList.add('shake');
+    return;
+  }
+  const hints = getHints(current, secret);
+  const isWin = current.every((c,i)=>c===secret[i]);
+  tryCount++;
+  credit--;
+  renderCredit();
+
+  // 토큰 상태 갱신: strike/ball난 토큰은 'seen', 그 외 입력된 토큰 중 처음 보는 건 'eliminated' 후보
+  // 단, 같은 토큰을 여러 자리에 입력했을 때 한 곳이라도 strike/ball이면 seen
+  const presentInSecret = new Set(secret);
+  for (let i = 0; i < current.length; i++) {
+    const t = current[i];
+    if (presentInSecret.has(t)) {
+      tokenStatus[t] = 'seen';
+    } else {
+      // 정답에 전혀 없는 토큰
+      if (tokenStatus[t] !== 'seen') tokenStatus[t] = 'eliminated';
+    }
+  }
+  // strike난 칸은 잠금
+  for (let i = 0; i < hints.length; i++) {
+    if (hints[i] === 'strike') lockedCells[i] = true;
+  }
+
+  addHistory(current.slice(), hints, false);
+  saveGame();
+
+  if (isWin) {
+    won = true;
+    streak++;
+    const earned = calcScore(tryCount);
+    totalScore += earned;
+    renderScore(earned);
+    renderStreak();
+    if (streak>=10 && level<LEVELS.length-1) {
+      streak=0; level++;
+      credit += CREDIT_INIT;
+      showFb(`🎉 10연속 성공! 레벨 ${LEVELS[level].num} 승급! (+${CREDIT_INIT} 크레딧)`,'win');
+      document.getElementById('levelup').classList.add('show');
+      setTimeout(init,2400);
+    } else if (streak>=10 && level===LEVELS.length-1) {
+      showFb('🏆 최고 레벨 클리어!','win');
+      setTimeout(()=>endGame('clear'), 2200);
+    } else {
+      showFb('정답! 다음 문제로...','win');
+      if (credit <= 0) {
+        setTimeout(()=>endGame('exhausted'), 1500);
+      } else {
+        setTimeout(init,1500);
+      }
+    }
+  } else {
+    const s = hints.filter(h=>h==='strike').length;
+    const b = hints.filter(h=>h==='ball').length;
+    showFb(`${s}S · ${b}B`,'');
+    // 다음 시도용 입력 초기화: 잠긴 칸은 secret 값으로 채움, 나머지는 빈 칸
+    current = secret.map((v, i) => lockedCells[i] ? v : '');
+    activeIdx = firstUnlocked(0, 1);
+    if (activeIdx === -1) {
+      // 모든 칸이 잠겼는데 정답이 아닌 경우는 이론상 없음 (전부 strike면 정답)
+      activeIdx = 0;
+    }
+    renderCells();
+    if (credit <= 0) {
+      setTimeout(()=>endGame('exhausted'), 800);
+    }
+  }
+}
+
+function addHistory(guess, hints, isReveal) {
+  historyLog.push({ guess: guess.slice(), hints: hints.slice(), isReveal });
+  renderHistoryRow(guess, hints, isReveal);
+}
+
+function renderHistoryRow(guess, hints, isReveal) {
+  document.getElementById('history').style.display='block';
+  const list = document.getElementById('history-list');
+  const row = document.createElement('div');
+  row.className='hrow';
+  if (isReveal) {
+    const tag=document.createElement('span');
+    tag.className='hrow-tag'; tag.textContent='정답';
+    row.appendChild(tag);
+  }
+  for (let i=0;i<guess.length;i++) {
+    const c=document.createElement('div');
+    c.className='hcell '+hints[i];
+    c.textContent=disp(guess[i]);
+    row.appendChild(c);
+  }
+  list.prepend(row);
+}
+
+function showFb(msg, type) {
+  const el=document.getElementById('feedback');
+  el.textContent=msg;
+  el.className='feedback'+(type?' '+type:'');
+}
+
+function askReveal() {
+  if (won) return;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+function doReveal() {
+  closeModal();
+  won=true; streak=0;
+  renderStreak();
+  addHistory(secret.slice(), Array(secret.length).fill('answer'), true);
+  saveGame(); // 정답 확인 시에도 저장
+  showFb('정답이 공개되었습니다.','reveal');
+  document.getElementById('reveal-btn').disabled=true;
+  const lastEl=document.getElementById('score-last');
+  lastEl.className='score-last';
+  lastEl.innerHTML=`+0pt <span class="score-badge s40">실패</span>`;
+  setTimeout(init,2800);
+}
+
+document.addEventListener('keydown',(e)=>{
+  // 게임오버 모달 활성 시: Enter로 등록, 다른 키 차단
+  const goModal = document.getElementById('gameover-modal');
+  if (goModal && goModal.classList.contains('show')) {
+    const inp = document.getElementById('player-name');
+    if (document.activeElement === inp) {
+      if (e.key === 'Enter') { e.preventDefault(); submitRank(); }
+      return;
+    }
+    if (e.key === 'Enter') { e.preventDefault(); finishGame(); }
+    return;
+  }
+  if (document.getElementById('level-select').style.display!=='none') return;
+  // VS 모드 중에는 키보드 입력 무시 (양쪽 동시 터치 입력 전용)
+  if (document.getElementById('vs-screen').style.display === 'block') return;
+  if (document.getElementById('modal').classList.contains('show')) {
+    if (e.key==='Escape') closeModal();
+    return;
+  }
+  if (document.getElementById('hint-modal').classList.contains('show')) {
+    if (e.key==='Escape' || e.key==='Enter') closeHintModal();
+    return;
+  }
+  if (/^[0-9]$/.test(e.key)) press(e.key);
+  else if (['+','-','*','/','='].includes(e.key)) press(e.key);
+  else if (e.key==='Enter') submit();
+  else if (e.key==='Backspace') del();
+  else if (e.key==='ArrowLeft') {
+    const prev = firstUnlocked(activeIdx-1, -1);
+    if (prev !== -1) { activeIdx = prev; renderCells(); }
+  }
+  else if (e.key==='ArrowRight') {
+    const next = firstUnlocked(activeIdx+1, 1);
+    if (next !== -1) { activeIdx = next; renderCells(); }
+  }
+});
+
+// 페이지 로드 시 레벨 선택 화면의 1위 표시 초기화
+renderLevelSelectTops();
+
+// 저장된 게임 있으면 이어하기 모달 표시
+showResumeModal();
+
+// 우클릭/길게누르기 컨텍스트 메뉴 차단 (특히 멀티터치 동시입력 시 문제 방지)
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ════════════════════════════════════════════════════════════════
+//  온라인 대전 모드
+//  - Socket.IO로 서버와 통신
+//  - 권한 있는 상태는 모두 서버에 있고, 클라는 렌더링만
+// ════════════════════════════════════════════════════════════════
+
+let onlineSocket = null;
+let onlineState = {
+  classId: null,         // 'class1' | 'class2' | 'class3'
+  className: '',
+  practiceLevel: 0,      // 대기 화면 연습용 레벨
+  // 연습용 로컬 상태 (서버 상관 없음, 그냥 시간 떼우는 용)
+  practiceSecret: [],
+  practiceCurrent: [],
+  practiceActiveIdx: 0,
+  practiceLocked: [],
+  // 매치 상태
+  matchSide: null,       // 'A' | 'B' | null
+  matchData: null,       // 서버에서 받은 최근 selfPayload
+  // 관전 상태
+  spectating: false,
+  spectateData: null,
+  // 결과
+  lastResult: null,
+  // 로비
+  lobby: [],
+};
+
+// ── 진입점: 메뉴에서 "온라인" 모드로 레벨 카드 클릭 시 ──
+function onlineEnterFlow(lv) {
+  // lv는 첫 연습 레벨로 사용
+  onlineState.practiceLevel = lv;
+  document.getElementById('level-select').style.display = 'none';
+  document.getElementById('online-class-select').style.display = 'flex';
+  ensureOnlineSocket();
+}
+
+function onlineBackToMenu() {
+  document.getElementById('online-class-select').style.display = 'none';
+  document.getElementById('level-select').style.display = 'flex';
+  if (onlineSocket && onlineSocket.connected) {
+    // 슬롯에 들어가기 전이면 그냥 두면 됨. disconnect까지 할 필요는 없음.
+  }
+}
+
+function ensureOnlineSocket() {
+  if (onlineSocket) return;
+  const status = document.getElementById('online-conn-status');
+  status.textContent = '서버 연결 중...';
+  status.className = 'online-conn-status';
+
+  try {
+    onlineSocket = io({
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+    });
+  } catch (e) {
+    status.textContent = '연결 실패: ' + e.message;
+    status.className = 'online-conn-status err';
+    return;
+  }
+
+  onlineSocket.on('connect', () => {
+    status.textContent = '✓ 연결됨';
+    status.className = 'online-conn-status ok';
+  });
+
+  onlineSocket.on('disconnect', () => {
+    status.textContent = '✗ 연결 끊김 - 재시도 중...';
+    status.className = 'online-conn-status err';
+  });
+
+  onlineSocket.on('connect_error', (err) => {
+    status.textContent = '✗ 연결 오류: ' + err.message;
+    status.className = 'online-conn-status err';
+  });
+
+  onlineSocket.on('error_msg', ({ msg }) => {
+    alert(msg);
+  });
+
+  onlineSocket.on('lobby_update', (lobby) => {
+    onlineState.lobby = lobby;
+    renderClassSelect();
+    renderLobbyList();
+  });
+
+  onlineSocket.on('entered_class', ({ classId, name, practiceLevel }) => {
+    onlineState.classId = classId;
+    onlineState.className = name;
+    onlineState.practiceLevel = practiceLevel;
+    document.getElementById('online-class-select').style.display = 'none';
+    document.getElementById('online-waiting').style.display = 'flex';
+    document.getElementById('ow-class-name').textContent = name;
+    document.getElementById('ow-level-select').value = String(practiceLevel);
+    owNewProblem();
+    renderLobbyList();
+  });
+
+  onlineSocket.on('back_to_menu', () => {
+    onlineState.classId = null;
+    onlineState.matchSide = null;
+    onlineState.spectating = false;
+    document.getElementById('online-waiting').style.display = 'none';
+    document.getElementById('vs-screen').style.display = 'none';
+    document.getElementById('online-post-match').classList.remove('show');
+    document.getElementById('online-class-select').style.display = 'flex';
+  });
+
+  onlineSocket.on('back_to_waiting', ({ classId, name, practiceLevel }) => {
+    onlineState.classId = classId;
+    onlineState.className = name;
+    onlineState.practiceLevel = practiceLevel;
+    onlineState.matchSide = null;
+    onlineState.spectating = false;
+    document.getElementById('vs-screen').style.display = 'none';
+    document.getElementById('online-post-match').classList.remove('show');
+    document.getElementById('online-waiting').style.display = 'flex';
+    document.getElementById('ow-class-name').textContent = name;
+    document.getElementById('ow-level-select').value = String(practiceLevel);
+    document.querySelector('.spectator-banner')?.classList.remove('show');
+    // 키패드 비활성화 풀기
+    document.querySelectorAll('.vs-keypad').forEach(k => k.classList.remove('spectator-mode'));
+    owNewProblem();
+  });
+
+  onlineSocket.on('match_start', (payload) => {
+    onlineState.matchSide = payload.side;
+    onlineState.matchData = payload;
+    showChallengerBanner(payload.opClass);
+    setTimeout(() => {
+      hideChallengerBanner();
+      enterMatchScreen(payload);
+      // ready 오버레이 표시
+      showReadyOverlay(payload);
+    }, 1800);
+  });
+
+  onlineSocket.on('match_state', (payload) => {
+    const prevPhase = onlineState.matchData ? onlineState.matchData.phase : null;
+    onlineState.matchData = payload;
+    // phase 변경에 따른 UI 갱신
+    if (payload.phase === 'ready') {
+      updateReadyOverlay(payload);
+    } else if (payload.phase === 'countdown') {
+      hideReadyOverlay();
+      // 카운트다운 오버레이는 countdown 이벤트로 띄움
+    } else if (payload.phase === 'playing') {
+      hideReadyOverlay();
+      hideCountdownOverlay();
+      // 키패드 재바인딩 (활성화)
+      rebindMatchKeypad(false);
+    }
+    renderMatchSelf(payload);
+  });
+
+  onlineSocket.on('countdown', ({ label }) => {
+    if (label === null) {
+      hideCountdownOverlay();
+    } else {
+      showCountdown(label);
+    }
+  });
+
+  onlineSocket.on('match_cancelled', ({ msg }) => {
+    hideReadyOverlay();
+    hideCountdownOverlay();
+    alert(msg || '매치가 취소되었어요.');
+    // 대기 화면으로 복귀 (서버가 곧 back_to_waiting을 줄 거지만, 일단 직접 정리)
+    onlineSocket.emit('post_match', { action: 'wait' });
+  });
+
+  onlineSocket.on('match_tick', ({ aRemainSec, bRemainSec, aEnded, bEnded }) => {
+    if (onlineState.spectating) {
+      if (onlineState.spectateData) {
+        onlineState.spectateData.a.remainSec = aRemainSec;
+        onlineState.spectateData.b.remainSec = bRemainSec;
+        onlineState.spectateData.a.ended = aEnded;
+        onlineState.spectateData.b.ended = bEnded;
+        renderSpectator(onlineState.spectateData);
+      }
+      return;
+    }
+    // 플레이어 본인
+    const side = onlineState.matchSide;
+    if (!side || !onlineState.matchData) return;
+    if (side === 'A') {
+      onlineState.matchData.mine.remainSec = aRemainSec;
+      onlineState.matchData.opp.remainSec = bRemainSec;
+      onlineState.matchData.mine.ended = aEnded;
+      onlineState.matchData.opp.ended = bEnded;
+    } else {
+      onlineState.matchData.mine.remainSec = bRemainSec;
+      onlineState.matchData.opp.remainSec = aRemainSec;
+      onlineState.matchData.mine.ended = bEnded;
+      onlineState.matchData.opp.ended = aEnded;
+    }
+    renderMatchSelf(onlineState.matchData);
+  });
+
+  onlineSocket.on('self_live_input', ({ current, activeIdx, lockedCells }) => {
+    if (!onlineState.matchData) return;
+    onlineState.matchData.mine.current = current;
+    onlineState.matchData.mine.activeIdx = activeIdx;
+    onlineState.matchData.mine.lockedCells = lockedCells;
+    renderMatchSelf(onlineState.matchData);
+  });
+
+  onlineSocket.on('opp_live_input', ({ current, activeIdx, lockedCells }) => {
+    if (!onlineState.matchData) return;
+    onlineState.matchData.opp.current = current;
+    onlineState.matchData.opp.activeIdx = activeIdx;
+    onlineState.matchData.opp.lockedCells = lockedCells;
+    renderMatchSelf(onlineState.matchData);
+  });
+
+  onlineSocket.on('submit_error', ({ msg }) => {
+    if (onlineState.matchSide) {
+      vsShowFb(onlineState.matchSide, msg, 'err');
+      const cells = document.getElementById(`vs-${onlineState.matchSide}-cells`);
+      if (cells) {
+        cells.classList.remove('shake'); void cells.offsetWidth; cells.classList.add('shake');
+      }
+    }
+  });
+
+  onlineSocket.on('submit_result', ({ hints, isWin, earned, levelUp, newLevel, remainSec }) => {
+    const side = onlineState.matchSide;
+    if (!side) return;
+    if (isWin) {
+      if (levelUp) {
+        vsShowFb(side, `🎉 레벨 ${LEVELS[newLevel].num} 승급! (+60초)`, 'win');
+      } else {
+        vsShowFb(side, `정답! +${earned}pt`, 'win');
+      }
+    } else {
+      const s = hints.filter(h => h === 'strike').length;
+      const b = hints.filter(h => h === 'ball').length;
+      vsShowFb(side, `${s}S · ${b}B`, '');
+    }
+  });
+
+  onlineSocket.on('match_end', (payload) => {
+    onlineState.lastResult = payload;
+    showMatchEndOverlay(payload);
+  });
+
+  onlineSocket.on('spectate_start', (payload) => {
+    onlineState.spectating = true;
+    onlineState.spectateData = payload;
+    enterSpectateScreen(payload);
+    // 관전자도 ready/countdown 단계면 표시
+    if (payload.phase === 'ready') {
+      showSpectatorReadyInfo(payload);
+    }
+  });
+
+  onlineSocket.on('spectate_state', (payload) => {
+    const prevPhase = onlineState.spectateData ? onlineState.spectateData.phase : null;
+    onlineState.spectateData = payload;
+    if (payload.phase === 'ready') {
+      showSpectatorReadyInfo(payload);
+    } else {
+      hideSpectatorReadyInfo();
+    }
+    renderSpectator(payload);
+  });
+
+  onlineSocket.on('spectate_live_input', ({ side, current, activeIdx, lockedCells }) => {
+    if (!onlineState.spectateData) return;
+    const target = side === 'A' ? onlineState.spectateData.a : onlineState.spectateData.b;
+    target.current = current;
+    target.activeIdx = activeIdx;
+    target.lockedCells = lockedCells;
+    renderSpectator(onlineState.spectateData);
+  });
+}
+
+// ── 반 선택 화면 렌더 ──
+function renderClassSelect() {
+  for (const slot of onlineState.lobby) {
+    const card = document.getElementById(`online-card-${slot.classId}`);
+    const stateEl = document.getElementById(`online-state-${slot.classId}`);
+    if (!card || !stateEl) continue;
+    if (slot.state === 'empty') {
+      card.classList.remove('busy');
+      stateEl.textContent = '사용 가능';
+    } else {
+      card.classList.add('busy');
+      stateEl.textContent = slot.state === 'waiting' ? '대기 중' :
+                            slot.state === 'in_match' ? '대전 중' :
+                            slot.state === 'spectating' ? '관전 중' : '사용 중';
+    }
+  }
+}
+
+function onlinePickClass(classId) {
+  // 현재 비어있는지 확인
+  const slot = onlineState.lobby.find(s => s.classId === classId);
+  if (!slot || slot.state !== 'empty') {
+    alert(`이미 사용 중이에요`);
+    return;
+  }
+  onlineSocket.emit('enter_class', {
+    classId,
+    practiceLevel: onlineState.practiceLevel,
+  });
+}
+
+// ── 대기 화면: 로비 목록 ──
+function renderLobbyList() {
+  const listEl = document.getElementById('ow-lobby-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  for (const slot of onlineState.lobby) {
+    if (slot.classId === onlineState.classId) continue; // 본인은 제외
+    const row = document.createElement('div');
+    row.className = 'ow-lobby-row ' + slot.state;
+    let statusText, btnHtml = '';
+    if (slot.state === 'empty') {
+      statusText = '비어있음';
+    } else if (slot.state === 'waiting') {
+      statusText = '🟢 대기 중';
+      btnHtml = `<button class="ow-class-btn" onclick="onlineChallenge('${slot.classId}')">⚡ 도전!</button>`;
+    } else if (slot.state === 'in_match') {
+      statusText = '⚔️ 대전 중';
+      if (slot.matchId) {
+        btnHtml = `<button class="ow-class-btn spec" onclick="onlineSpectate('${slot.matchId}')">👀 관전</button>`;
+      }
+    } else if (slot.state === 'spectating') {
+      statusText = '👀 관전 중';
+    }
+    row.innerHTML = `
+      <span class="ow-class-label">${slot.name}</span>
+      <span class="ow-class-status">${statusText}</span>
+      ${btnHtml}
+    `;
+    listEl.appendChild(row);
+  }
+}
+
+function onlineChallenge(targetClassId) {
+  onlineSocket.emit('challenge', { targetClassId });
+}
+
+function onlineSpectate(matchId) {
+  onlineSocket.emit('spectate', { matchId });
+}
+
+function onlineExitClass() {
+  if (!confirm('대기 화면을 나갈까요?')) return;
+  onlineSocket.emit('exit_class');
+}
+
+function onlineSetPracticeLevel() {
+  const lv = parseInt(document.getElementById('ow-level-select').value, 10);
+  onlineState.practiceLevel = lv;
+  if (onlineSocket) onlineSocket.emit('set_practice_level', { level: lv });
+  owNewProblem();
+}
+
+// ── 연습 영역 (대기 화면 우측) ──
+// 서버랑 무관하게 그냥 클라에서 시간 떼우기용
+function owNewProblem() {
+  const lv = onlineState.practiceLevel;
+  onlineState.practiceSecret = makeSecret(lv);
+  const len = LEVELS[lv].slots;
+  onlineState.practiceCurrent = Array(len).fill('');
+  onlineState.practiceActiveIdx = 0;
+  onlineState.practiceLocked = Array(len).fill(false);
+  owRenderCells();
+  document.getElementById('ow-practice-feedback').textContent = '';
+  document.getElementById('ow-practice-feedback').className = 'feedback';
+}
+
+function owRenderCells() {
+  const wrap = document.getElementById('ow-practice-cells');
+  wrap.innerHTML = '';
+  const cur = onlineState.practiceCurrent;
+  for (let i = 0; i < cur.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (i === onlineState.practiceActiveIdx) cell.classList.add('active');
+    if (onlineState.practiceLocked[i]) cell.classList.add('locked');
+    cell.textContent = cur[i] === '' ? '' : disp(cur[i]);
+    cell.onclick = () => {
+      if (onlineState.practiceLocked[i]) return;
+      onlineState.practiceActiveIdx = i;
+      owRenderCells();
+    };
+    wrap.appendChild(cell);
+  }
+}
+
+function owPress(v) {
+  const idx = onlineState.practiceActiveIdx;
+  if (idx < 0 || idx >= onlineState.practiceCurrent.length) return;
+  if (onlineState.practiceLocked[idx]) return;
+  onlineState.practiceCurrent[idx] = v;
+  let next = idx + 1;
+  while (next < onlineState.practiceCurrent.length && onlineState.practiceLocked[next]) next++;
+  if (next < onlineState.practiceCurrent.length) onlineState.practiceActiveIdx = next;
+  owRenderCells();
+  document.getElementById('ow-practice-feedback').textContent = '';
+}
+
+function owDel() {
+  const idx = onlineState.practiceActiveIdx;
+  if (idx < 0) return;
+  if (onlineState.practiceCurrent[idx] !== '') {
+    onlineState.practiceCurrent[idx] = '';
+  } else {
+    let prev = idx - 1;
+    while (prev >= 0 && onlineState.practiceLocked[prev]) prev--;
+    if (prev >= 0) {
+      onlineState.practiceActiveIdx = prev;
+      onlineState.practiceCurrent[prev] = '';
+    }
+  }
+  owRenderCells();
+}
+
+function owSubmit() {
+  const v = validate(onlineState.practiceCurrent);
+  const fb = document.getElementById('ow-practice-feedback');
+  if (!v.ok) {
+    fb.textContent = v.msg; fb.className = 'feedback err';
+    return;
+  }
+  const isWin = onlineState.practiceCurrent.every((c, i) => c === onlineState.practiceSecret[i]);
+  if (isWin) {
+    fb.textContent = '정답! 🎉'; fb.className = 'feedback win';
+    setTimeout(owNewProblem, 800);
+  } else {
+    const hints = getHints(onlineState.practiceCurrent, onlineState.practiceSecret);
+    const s = hints.filter(h => h === 'strike').length;
+    const b = hints.filter(h => h === 'ball').length;
+    fb.textContent = `${s}S · ${b}B`; fb.className = 'feedback';
+    // 스트라이크 칸 잠그기
+    for (let i = 0; i < hints.length; i++) {
+      if (hints[i] === 'strike') onlineState.practiceLocked[i] = true;
+    }
+    onlineState.practiceCurrent = onlineState.practiceSecret.map((sv, i) =>
+      onlineState.practiceLocked[i] ? sv : ''
+    );
+    let firstUnlocked = onlineState.practiceLocked.findIndex(l => !l);
+    if (firstUnlocked < 0) firstUnlocked = 0;
+    onlineState.practiceActiveIdx = firstUnlocked;
+    owRenderCells();
+  }
+}
+
+// ── NEW CHALLENGER 배너 ──
+function showChallengerBanner(opClassName) {
+  const banner = document.getElementById('online-match-banner');
+  document.getElementById('omb-sub').textContent = `${opClassName}이(가) 도전했어요!`;
+  banner.classList.add('show');
+}
+function hideChallengerBanner() {
+  document.getElementById('online-match-banner').classList.remove('show');
+}
+
+// ── 매치 화면 진입 (vs-screen 재사용) ──
+function enterMatchScreen(payload) {
+  document.getElementById('online-waiting').style.display = 'none';
+  document.getElementById('online-class-select').style.display = 'none';
+  document.getElementById('vs-screen').style.display = 'block';
+  document.getElementById('vs-result-overlay').classList.remove('show');
+  document.getElementById('vs-A-end-overlay')?.classList.remove('show');
+  document.getElementById('vs-B-end-overlay')?.classList.remove('show');
+  document.querySelector('.spectator-banner')?.classList.remove('show');
+
+  // 키패드는 일단 비활성 (READY/카운트다운 단계에서)
+  // playing 단계가 되면 match_state 핸들러에서 재바인딩됨
+  ['A', 'B'].forEach(side => {
+    const pad = document.querySelector(`.vs-side.${side} .vs-keypad`);
+    if (pad) pad.classList.add('spectator-mode');
+  });
+
+  // 사이드 라벨 업데이트 (1반 vs 2반 식)
+  updateMatchSideLabels(payload);
+
+  renderMatchSelf(payload);
+}
+
+// ── READY 오버레이 ──
+let readyTimeoutClientId = null;
+
+function showReadyOverlay(payload) {
+  // 양쪽 라벨 표시
+  const aClass = payload.side === 'A' ? payload.myClass : payload.opClass;
+  const bClass = payload.side === 'A' ? payload.opClass : payload.myClass;
+  document.getElementById('ready-class-a').textContent = '🔴 ' + aClass;
+  document.getElementById('ready-class-b').textContent = '🔵 ' + bClass;
+  // 본인 사이드 강조하려면 cell 자체에 me-side 클래스 추가
+  document.getElementById('ready-cell-a').classList.toggle('me-side', payload.side === 'A');
+  document.getElementById('ready-cell-b').classList.toggle('me-side', payload.side === 'B');
+
+  // 본인 버튼 초기화
+  const btn = document.getElementById('ready-btn-main');
+  btn.classList.remove('done');
+  btn.textContent = '🟢 준비완료';
+  btn.disabled = false;
+
+  // 30초 타임아웃 표시 (서버가 진짜 타임아웃 관리하지만, 시각적 표시용)
+  let secondsLeft = 30;
+  const timeoutEl = document.getElementById('ready-timeout');
+  timeoutEl.textContent = `⏱ ${secondsLeft}초 안에 준비하세요`;
+  if (readyTimeoutClientId) clearInterval(readyTimeoutClientId);
+  readyTimeoutClientId = setInterval(() => {
+    secondsLeft--;
+    if (secondsLeft <= 0) {
+      clearInterval(readyTimeoutClientId);
+      readyTimeoutClientId = null;
+      timeoutEl.textContent = '⏱ 시간 초과...';
+      return;
+    }
+    timeoutEl.textContent = `⏱ ${secondsLeft}초 안에 준비하세요`;
+  }, 1000);
+
+  document.getElementById('ready-overlay').classList.add('show');
+  updateReadyOverlay(payload);
+}
+
+function updateReadyOverlay(payload) {
+  // payload.myReady, oppReady 사용
+  const myReady = payload.myReady;
+  const oppReady = payload.oppReady;
+  const mySide = payload.side;
+
+  // A/B 사이드 ready 상태를 표시
+  const aReady = mySide === 'A' ? myReady : oppReady;
+  const bReady = mySide === 'A' ? oppReady : myReady;
+
+  document.getElementById('ready-cell-a').classList.toggle('ready', aReady);
+  document.getElementById('ready-state-a').textContent = aReady ? '✓ 준비완료' : '대기 중';
+  document.getElementById('ready-cell-b').classList.toggle('ready', bReady);
+  document.getElementById('ready-state-b').textContent = bReady ? '✓ 준비완료' : '대기 중';
+
+  // 본인 버튼 상태
+  const btn = document.getElementById('ready-btn-main');
+  if (myReady) {
+    btn.classList.add('done');
+    btn.textContent = '✓ 준비완료';
+  } else {
+    btn.classList.remove('done');
+    btn.textContent = '🟢 준비완료';
+  }
+}
+
+function hideReadyOverlay() {
+  document.getElementById('ready-overlay').classList.remove('show');
+  if (readyTimeoutClientId) {
+    clearInterval(readyTimeoutClientId);
+    readyTimeoutClientId = null;
+  }
+}
+
+function onlineToggleReady() {
+  if (!onlineState.matchData) return;
+  if (onlineState.matchData.phase !== 'ready') return;
+  const newReady = !onlineState.matchData.myReady;
+  onlineSocket.emit('set_ready', { ready: newReady });
+}
+
+function onlineCancelMatch() {
+  if (!confirm('매치를 취소할까요?')) return;
+  // exit_class를 보내서 슬롯에서 나가고, 서버는 이 상태를 forfeit로 처리할 것
+  // 하지만 사용자는 다시 대기 화면에 머무는 게 자연스러움 → 서버에 별도 cancel 보내기보다는
+  // 그냥 메뉴로 빠지는 흐름. 또는 단순히 disconnect 처리.
+  // 가장 깔끔한 방법: 서버에 exit_class 보내면 매치는 forfeit로 종료되고 슬롯 비워짐.
+  onlineSocket.emit('exit_class');
+}
+
+// ── 카운트다운 오버레이 ──
+function showCountdown(label) {
+  const ov = document.getElementById('countdown-overlay');
+  const num = document.getElementById('countdown-num');
+  num.textContent = label;
+  num.className = 'countdown-num'; // reset
+  if (label === '3') num.classList.add('three');
+  else if (label === '2') num.classList.add('two');
+  else if (label === '1') num.classList.add('one');
+  else if (label === 'GO!') num.classList.add('go');
+  // 애니메이션 재시작 트릭
+  num.style.animation = 'none';
+  void num.offsetWidth;
+  num.style.animation = '';
+  ov.classList.add('show');
+}
+
+function hideCountdownOverlay() {
+  document.getElementById('countdown-overlay').classList.remove('show');
+}
+
+// ── 관전자용 ready 정보 (본인 버튼 없는 변형) ──
+function showSpectatorReadyInfo(payload) {
+  // payload: { aClass, bClass, aReady, bReady, phase, ... }
+  document.getElementById('ready-class-a').textContent = '🔴 ' + payload.aClass;
+  document.getElementById('ready-class-b').textContent = '🔵 ' + payload.bClass;
+  document.getElementById('ready-cell-a').classList.toggle('ready', payload.aReady);
+  document.getElementById('ready-state-a').textContent = payload.aReady ? '✓ 준비완료' : '대기 중';
+  document.getElementById('ready-cell-b').classList.toggle('ready', payload.bReady);
+  document.getElementById('ready-state-b').textContent = payload.bReady ? '✓ 준비완료' : '대기 중';
+  // 본인 버튼은 관전자에겐 무의미하니 숨김
+  document.getElementById('ready-btn-main').style.display = 'none';
+  // 취소 버튼도 관전자는 그냥 관전 종료 의미로 활용 가능 — 유지
+  document.querySelector('#ready-overlay .ready-btn.cancel').textContent = '관전 종료';
+  document.querySelector('#ready-overlay .ready-btn.cancel').onclick = () => {
+    onlineSocket.emit('leave_spectate');
+    document.querySelector('#ready-overlay .ready-btn.cancel').onclick = onlineCancelMatch;
+  };
+  document.getElementById('ready-overlay').classList.add('show');
+}
+
+function hideSpectatorReadyInfo() {
+  document.getElementById('ready-overlay').classList.remove('show');
+  // 다음 매치를 위해 버튼 복원
+  document.getElementById('ready-btn-main').style.display = '';
+  const cancelBtn = document.querySelector('#ready-overlay .ready-btn.cancel');
+  cancelBtn.textContent = '취소';
+  cancelBtn.onclick = onlineCancelMatch;
+}
+
+function updateMatchSideLabels(payload) {
+  // payload: { side: 'A'|'B', myClass, opClass, mine, opp }
+  // vs 화면의 .vs-side-name을 반 이름으로 교체
+  const aName = payload.side === 'A' ? payload.myClass : payload.opClass;
+  const bName = payload.side === 'A' ? payload.opClass : payload.myClass;
+  const aLabel = document.querySelector('.vs-side.A .vs-side-name');
+  const bLabel = document.querySelector('.vs-side.B .vs-side-name');
+  if (aLabel) aLabel.textContent = `🔴 ${aName}`;
+  if (bLabel) bLabel.textContent = `🔵 ${bName}`;
+}
+
+function rebindMatchKeypad(isSpectator) {
+  // 기존 vs-screen 키패드의 onpointerdown은 vsPress('A',...) 형태로 박혀있음.
+  // 온라인 모드에서는 자기 사이드만 활성화되어 있어야 하고, 입력은 서버로 보내야 함.
+  // 가장 깔끔한 방법: 키패드 버튼 onclick을 동적으로 재할당.
+  ['A', 'B'].forEach(side => {
+    const pad = document.querySelector(`.vs-side.${side} .vs-keypad`);
+    if (!pad) return;
+    if (isSpectator) {
+      pad.classList.add('spectator-mode');
+      return;
+    } else {
+      pad.classList.remove('spectator-mode');
+    }
+    // 본인 사이드만 입력 활성, 상대 사이드는 비활성
+    const isMySide = (side === onlineState.matchSide);
+    if (!isMySide) {
+      pad.classList.add('spectator-mode'); // 비활성 시각효과 재사용
+      return;
+    }
+    pad.classList.remove('spectator-mode');
+    // 버튼들 재바인딩
+    const buttons = pad.querySelectorAll('button');
+    buttons.forEach(btn => {
+      const txt = btn.textContent.trim();
+      btn.onpointerdown = null;
+      if (txt === '확인') {
+        btn.onpointerdown = () => {
+          if (!onlineState.matchData) return;
+          onlineSocket.emit('match_submit', {
+            tokens: onlineState.matchData.mine.current.slice()
+          });
+        };
+      } else if (txt.startsWith('←') || txt.includes('지우기')) {
+        btn.onpointerdown = () => onlineSocket.emit('match_del');
+      } else if (txt.includes('힌트')) {
+        btn.onpointerdown = () => vsShowHint(side); // 힌트는 클라에서 토큰상태로 계산 - 그대로 사용
+      } else {
+        // 숫자/연산자
+        const map = { '×': '*', '÷': '/', '−': '-' };
+        const value = map[txt] || txt;
+        btn.onpointerdown = () => onlineSocket.emit('match_press', { value });
+      }
+    });
+  });
+}
+
+// ── 본인 매치 상태 렌더 ──
+function renderMatchSelf(payload) {
+  const mySide = payload.side;
+  const opSide = mySide === 'A' ? 'B' : 'A';
+
+  // 본인 측 패널 = mySide의 vs-side, 상대 측 패널 = opSide의 vs-side
+  // 이렇게 하면 mySide가 'B'일 때도 화면 좌측은 그냥 'A'(=상대)를 보여주게 됨.
+  // 더 간단하게: payload.mine은 항상 mySide의 vs-side에, payload.opp는 opSide의 vs-side에 그림.
+
+  applyPlayerToSide(mySide, payload.mine, false);
+  applyPlayerToSide(opSide, payload.opp, true);
+}
+
+function applyPlayerToSide(side, p, isOpp) {
+  // 점수, 레벨, 연승, 타이머 등 기본 표시
+  const lvlEl = document.getElementById(`vs-${side}-lvl`);
+  if (lvlEl) lvlEl.textContent = 'LV.' + LEVELS[p.level].num;
+  const lvlSubEl = document.getElementById(`vs-${side}-lvl-sub`);
+  if (lvlSubEl) lvlSubEl.textContent = LEVELS[p.level].label;
+  const scoreEl = document.getElementById(`vs-${side}-score`);
+  if (scoreEl) scoreEl.textContent = p.totalScore;
+
+  // 점수 규칙
+  vsRenderRulesForLevel(side, p.level);
+
+  // 연승 점들
+  const dotsEl = document.getElementById(`vs-${side}-streak-dots`);
+  if (dotsEl) {
+    dotsEl.innerHTML = '';
+    for (let i = 0; i < VS_LEVELUP_STREAK; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot' + (i < p.streak ? ' on' : '');
+      dotsEl.appendChild(d);
+    }
+  }
+  const cntEl = document.getElementById(`vs-${side}-streak-count`);
+  if (cntEl) cntEl.textContent = `${p.streak}/${VS_LEVELUP_STREAK}`;
+
+  // 타이머
+  const t = document.getElementById(`vs-${side}-timer`);
+  if (t) {
+    const m = Math.floor(p.remainSec / 60);
+    const s = p.remainSec % 60;
+    t.textContent = `${m}:${String(s).padStart(2, '0')}`;
+    t.classList.toggle('urgent', p.remainSec <= 10 && !p.ended);
+    t.classList.toggle('ended', !!p.ended);
+  }
+
+  // 셀
+  const cellsEl = document.getElementById(`vs-${side}-cells`);
+  if (cellsEl) {
+    cellsEl.innerHTML = '';
+    for (let i = 0; i < p.current.length; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'vs-cell';
+      if (i === p.activeIdx && !isOpp) cell.classList.add('active');
+      if (p.lockedCells[i]) cell.classList.add('locked');
+      cell.textContent = p.current[i] === '' ? '' : disp(p.current[i]);
+      cellsEl.appendChild(cell);
+    }
+  }
+
+  // 히스토리
+  vsRenderHistoryFromLog(side, p.historyLog || [], LEVELS[p.level].slots);
+
+  // 시간 종료 오버레이
+  if (p.ended) {
+    const ov = document.getElementById(`vs-${side}-end-overlay`);
+    if (ov) {
+      document.getElementById(`vs-${side}-end-score`).textContent = p.totalScore;
+      ov.classList.add('show');
+    }
+  }
+}
+
+// 기존 vsRenderRules는 vsP[side]를 참조하므로 레벨 인자 받는 변형
+function vsRenderRulesForLevel(side, lv) {
+  const el = document.getElementById(`vs-${side}-rules`);
+  if (!el) return;
+  const rules = SCORE_RULES[lv];
+  const items = [];
+  let prev = 0;
+  for (const r of rules) {
+    const range = (r.max === prev + 1) ? `${r.max}` : `${prev + 1}~${r.max}`;
+    items.push(`<span class="rule-item"><span class="rule-pts s${r.pts}">${r.pts}</span>${range}회</span>`);
+    prev = r.max;
+  }
+  items.push(`<span class="rule-item"><span class="rule-pts s40">40</span>${prev + 1}+</span>`);
+  el.innerHTML = `<span class="rule-label">기준</span>${items.join('')}`;
+}
+
+// 히스토리 렌더 (vsRenderHistory와 비슷하지만 인자로 받음)
+function vsRenderHistoryFromLog(side, log, slots) {
+  const list = document.getElementById(`vs-${side}-history-list`);
+  if (!list) return;
+  list.innerHTML = '';
+  for (const entry of log) {
+    const row = document.createElement('div');
+    row.className = 'hrow';
+    for (let i = 0; i < entry.guess.length; i++) {
+      const c = document.createElement('div');
+      c.className = 'hcell';
+      const h = entry.hints[i];
+      if (h === 'strike') c.classList.add('strike');
+      else if (h === 'ball') c.classList.add('ball');
+      else c.classList.add('out');
+      c.textContent = disp(entry.guess[i]);
+      row.appendChild(c);
+    }
+    list.appendChild(row);
+  }
+}
+
+// ── 관전 화면 ──
+function enterSpectateScreen(payload) {
+  document.getElementById('online-waiting').style.display = 'none';
+  document.getElementById('vs-screen').style.display = 'block';
+  document.getElementById('vs-result-overlay').classList.remove('show');
+  // 양쪽 다 비활성
+  ['A', 'B'].forEach(side => {
+    const pad = document.querySelector(`.vs-side.${side} .vs-keypad`);
+    if (pad) pad.classList.add('spectator-mode');
+  });
+  // 관전 배너
+  let banner = document.querySelector('.spectator-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.className = 'spectator-banner';
+    banner.textContent = '👀 관전 중 - 종료하려면 ESC 또는 뒤로';
+    document.body.appendChild(banner);
+  }
+  banner.classList.add('show');
+
+  // 사이드 라벨
+  const aLabel = document.querySelector('.vs-side.A .vs-side-name');
+  const bLabel = document.querySelector('.vs-side.B .vs-side-name');
+  if (aLabel) aLabel.textContent = `🔴 ${payload.aClass}`;
+  if (bLabel) bLabel.textContent = `🔵 ${payload.bClass}`;
+
+  renderSpectator(payload);
+}
+
+function renderSpectator(payload) {
+  applyPlayerToSide('A', payload.a, true);
+  applyPlayerToSide('B', payload.b, true);
+}
+
+// ── 매치 종료 처리 ──
+function showMatchEndOverlay(payload) {
+  // payload: { aScore, bScore, winner, aClass, bClass, mySide?, spectator?, forfeit? }
+  const modal = document.getElementById('online-post-match');
+  const title = document.getElementById('opm-title');
+  const result = document.getElementById('opm-result');
+  const btnSpec = document.getElementById('opm-btn-spectate');
+  const btnWait = document.getElementById('opm-btn-wait');
+
+  let titleText, resultHtml;
+  if (payload.forfeit) {
+    titleText = '경기 중단';
+    resultHtml = `상대가 나갔어요. <span class="winner">자동 승리</span>`;
+  } else if (!payload.winner) {
+    titleText = '🤝 무승부';
+    resultHtml = `${payload.aClass} ${payload.aScore} : ${payload.bScore} ${payload.bClass}`;
+  } else {
+    const winnerName = payload.winner === 'A' ? payload.aClass : payload.bClass;
+    titleText = '🏁 매치 종료';
+    resultHtml = `<span class="winner">🏆 ${winnerName} 승리!</span><br>${payload.aClass} ${payload.aScore} : ${payload.bScore} ${payload.bClass}`;
+  }
+
+  title.textContent = titleText;
+  result.innerHTML = resultHtml;
+
+  if (payload.spectator) {
+    // 관전자: 그냥 대기로 복귀 버튼만
+    btnSpec.style.display = 'none';
+    btnWait.textContent = '대기 화면으로';
+  } else {
+    // 플레이어
+    const iWon = payload.winner === payload.mySide;
+    if (iWon) {
+      btnWait.textContent = '👑 다음 도전 기다리기';
+      btnSpec.style.display = 'none';
+    } else {
+      // 패자 옵션: 관전 가능하면 표시 (사실 양쪽 다 끝났으면 관전할 게 없음)
+      // 우리 흐름에선 매치가 끝났으니 관전 대상도 없음. 대기로 복귀가 자연스러움.
+      btnWait.textContent = '대기 화면으로';
+      btnSpec.style.display = 'none';
+    }
+  }
+  modal.classList.add('show');
+}
+
+function onlinePostMatch(action) {
+  document.getElementById('online-post-match').classList.remove('show');
+  // 종료 오버레이도 숨기기
+  document.getElementById('vs-A-end-overlay')?.classList.remove('show');
+  document.getElementById('vs-B-end-overlay')?.classList.remove('show');
+  document.querySelector('.spectator-banner')?.classList.remove('show');
+  onlineSocket.emit('post_match', { action });
+}
+
+// VS 모드 키보드 입력 차단 부분에 online도 추가하기 위해
+// 기존 코드에 vs-screen이 보이면 키보드 무시하는 로직이 있음. 그대로 OK.
+
+</script>
+</body>
+</html>

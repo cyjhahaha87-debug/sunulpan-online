@@ -3314,6 +3314,17 @@ function startVsGame(lv) {
   document.getElementById('vs-A-end-overlay')?.classList.remove('show');
   document.getElementById('vs-B-end-overlay')?.classList.remove('show');
 
+  // 이전 온라인 모드 잔재 정리: 키패드 비활성 클래스, 관전 배너, READY/카운트다운 오버레이
+  document.querySelectorAll('.vs-keypad').forEach(k => k.classList.remove('spectator-mode'));
+  document.querySelector('.spectator-banner')?.classList.remove('show');
+  document.getElementById('ready-overlay')?.classList.remove('show');
+  document.getElementById('countdown-overlay')?.classList.remove('show');
+  // 사이드 라벨 원상복구 (온라인 모드에서 반 이름으로 바뀌었을 수 있음)
+  const aLabel = document.querySelector('.vs-side.A .vs-side-name');
+  const bLabel = document.querySelector('.vs-side.B .vs-side-name');
+  if (aLabel) aLabel.textContent = '🔴 왼쪽';
+  if (bLabel) bLabel.textContent = '🔵 오른쪽';
+
   // 양쪽 첫 문제 생성
   vsNewProblem('A');
   vsNewProblem('B');
@@ -3484,6 +3495,13 @@ function vsFirstUnlocked(side, from, dir) {
 }
 
 function vsPress(side, v) {
+  // 온라인 모드: 본인 사이드면 서버로 emit, 아니면 무시
+  if (gameMode === 'online') {
+    if (!onlineState.matchData || onlineState.matchData.phase !== 'playing') return;
+    if (side !== onlineState.matchSide) return;
+    onlineSocket.emit('match_press', { value: v });
+    return;
+  }
   if (vsEnded) return;
   const p = vsP[side];
   if (p.ended || p.won) return;
@@ -3497,6 +3515,12 @@ function vsPress(side, v) {
 }
 
 function vsDel(side) {
+  if (gameMode === 'online') {
+    if (!onlineState.matchData || onlineState.matchData.phase !== 'playing') return;
+    if (side !== onlineState.matchSide) return;
+    onlineSocket.emit('match_del');
+    return;
+  }
   if (vsEnded) return;
   const p = vsP[side];
   if (p.ended || p.won) return;
@@ -3514,6 +3538,14 @@ function vsDel(side) {
 }
 
 function vsSubmit(side) {
+  if (gameMode === 'online') {
+    if (!onlineState.matchData || onlineState.matchData.phase !== 'playing') return;
+    if (side !== onlineState.matchSide) return;
+    onlineSocket.emit('match_submit', {
+      tokens: onlineState.matchData.mine.current.slice()
+    });
+    return;
+  }
   if (vsEnded) return;
   const p = vsP[side];
   if (p.ended || p.won) return;
@@ -3585,6 +3617,32 @@ function vsClearFb(side) {
 }
 
 function vsShowHint(side) {
+  // 온라인 모드: 본인 사이드만 힌트 가능, tokenStatus는 서버에서 받은 matchData에서
+  if (gameMode === 'online') {
+    if (!onlineState.matchData) return;
+    if (side !== onlineState.matchSide) return;
+    const tokenStatus = onlineState.matchData.mine.tokenStatus || {};
+    const numbers = ['1','2','3','4','5','6','7','8','9','0'];
+    const ops = ['+','-','*','/','='];
+    const content = document.getElementById(`vs-${side}-hint-content`);
+    let html = '<div class="hint-section-title">숫자</div>';
+    html += '<div class="hint-grid">';
+    numbers.forEach(n => {
+      const cls = tokenStatus[n] === 'eliminated' ? 'eliminated' : 'candidate';
+      html += `<div class="hint-cell ${cls}">${n}</div>`;
+    });
+    html += '</div>';
+    html += '<div class="hint-section-title">연산자</div>';
+    html += '<div class="hint-grid" style="grid-template-columns:repeat(5,1fr);">';
+    ops.forEach(o => {
+      const cls = tokenStatus[o] === 'eliminated' ? 'eliminated' : 'candidate';
+      html += `<div class="hint-cell ${cls}">${disp(o)}</div>`;
+    });
+    html += '</div>';
+    content.innerHTML = html;
+    document.getElementById(`vs-${side}-hint`).classList.add('show');
+    return;
+  }
   const p = vsP[side];
   if (p.ended || p.won || vsEnded) return;
   const numbers = ['1','2','3','4','5','6','7','8','9','0'];
@@ -3632,6 +3690,33 @@ function vsFinish() {
 }
 
 function vsExit() {
+  // 온라인 모드: 서버에 슬롯 정리 요청
+  if (gameMode === 'online') {
+    if (onlineSocket && onlineSocket.connected && onlineState.classId) {
+      // 매치 중/관전 중/대기 중 어느 상태든 exit_class가 안전하게 정리해 줌
+      onlineSocket.emit('exit_class');
+    }
+    // 화면 정리 (서버 응답 안 기다리고 즉시 - back_to_menu도 와서 한번 더 정리할 것)
+    document.getElementById('vs-result-overlay').classList.remove('show');
+    document.getElementById('vs-A-end-overlay')?.classList.remove('show');
+    document.getElementById('vs-B-end-overlay')?.classList.remove('show');
+    document.getElementById('online-post-match').classList.remove('show');
+    document.getElementById('ready-overlay').classList.remove('show');
+    document.getElementById('countdown-overlay').classList.remove('show');
+    document.querySelector('.spectator-banner')?.classList.remove('show');
+    document.getElementById('vs-screen').style.display = 'none';
+    document.getElementById('online-waiting').style.display = 'none';
+    document.getElementById('online-class-select').style.display = 'none';
+    document.getElementById('level-select').style.display = 'flex';
+    // 온라인 상태 초기화
+    onlineState.classId = null;
+    onlineState.matchSide = null;
+    onlineState.matchData = null;
+    onlineState.spectating = false;
+    onlineState.spectateData = null;
+    return;
+  }
+  // 로컬 대결모드: 기존 로직
   if (vsTimerId) { clearInterval(vsTimerId); vsTimerId = null; }
   document.getElementById('vs-result-overlay').classList.remove('show');
   document.getElementById('vs-A-end-overlay')?.classList.remove('show');
@@ -3641,6 +3726,11 @@ function vsExit() {
 }
 
 function vsRestart() {
+  if (gameMode === 'online') {
+    // 온라인은 매칭부터 다시 해야 함 → 그냥 메뉴로 (실제로 이 함수가 호출될 일은 거의 없음)
+    vsExit();
+    return;
+  }
   document.getElementById('vs-result-overlay').classList.remove('show');
   startVsGame(vsStartLv);
 }
@@ -3970,6 +4060,10 @@ function onlineEnterFlow(lv) {
   document.getElementById('level-select').style.display = 'none';
   document.getElementById('online-class-select').style.display = 'flex';
   ensureOnlineSocket();
+  // 이미 연결된 상태라면 lobby 강제 새로고침 (자기 반 점유 상태 등 최신화)
+  if (onlineSocket && onlineSocket.connected) {
+    onlineSocket.emit('refresh_lobby');
+  }
 }
 
 function onlineBackToMenu() {
@@ -4571,48 +4665,24 @@ function updateMatchSideLabels(payload) {
 }
 
 function rebindMatchKeypad(isSpectator) {
-  // 기존 vs-screen 키패드의 onpointerdown은 vsPress('A',...) 형태로 박혀있음.
-  // 온라인 모드에서는 자기 사이드만 활성화되어 있어야 하고, 입력은 서버로 보내야 함.
-  // 가장 깔끔한 방법: 키패드 버튼 onclick을 동적으로 재할당.
+  // 키패드 인라인 핸들러는 vsPress/vsDel/vsSubmit/vsShowHint를 호출하는데,
+  // 그 함수들이 gameMode === 'online'일 때 자동으로 서버로 emit하도록 분기됨.
+  // 여기서는 시각적 활성/비활성(.spectator-mode 클래스)만 토글하면 됨.
   ['A', 'B'].forEach(side => {
     const pad = document.querySelector(`.vs-side.${side} .vs-keypad`);
     if (!pad) return;
     if (isSpectator) {
       pad.classList.add('spectator-mode');
       return;
+    }
+    // 온라인 모드: 본인 사이드만 활성, 상대 사이드는 비활성
+    if (gameMode === 'online') {
+      const isMySide = (side === onlineState.matchSide);
+      pad.classList.toggle('spectator-mode', !isMySide);
     } else {
+      // 로컬 대결모드: 양쪽 다 활성
       pad.classList.remove('spectator-mode');
     }
-    // 본인 사이드만 입력 활성, 상대 사이드는 비활성
-    const isMySide = (side === onlineState.matchSide);
-    if (!isMySide) {
-      pad.classList.add('spectator-mode'); // 비활성 시각효과 재사용
-      return;
-    }
-    pad.classList.remove('spectator-mode');
-    // 버튼들 재바인딩
-    const buttons = pad.querySelectorAll('button');
-    buttons.forEach(btn => {
-      const txt = btn.textContent.trim();
-      btn.onpointerdown = null;
-      if (txt === '확인') {
-        btn.onpointerdown = () => {
-          if (!onlineState.matchData) return;
-          onlineSocket.emit('match_submit', {
-            tokens: onlineState.matchData.mine.current.slice()
-          });
-        };
-      } else if (txt.startsWith('←') || txt.includes('지우기')) {
-        btn.onpointerdown = () => onlineSocket.emit('match_del');
-      } else if (txt.includes('힌트')) {
-        btn.onpointerdown = () => vsShowHint(side); // 힌트는 클라에서 토큰상태로 계산 - 그대로 사용
-      } else {
-        // 숫자/연산자
-        const map = { '×': '*', '÷': '/', '−': '-' };
-        const value = map[txt] || txt;
-        btn.onpointerdown = () => onlineSocket.emit('match_press', { value });
-      }
-    });
   });
 }
 
@@ -4670,9 +4740,11 @@ function applyPlayerToSide(side, p, isOpp) {
     cellsEl.innerHTML = '';
     for (let i = 0; i < p.current.length; i++) {
       const cell = document.createElement('div');
-      cell.className = 'vs-cell';
-      if (i === p.activeIdx && !isOpp) cell.classList.add('active');
-      if (p.lockedCells[i]) cell.classList.add('locked');
+      let cls = 'cell vs-cell';
+      if (isOp(p.current[i])) cls += ' op';
+      if (i === p.activeIdx && !isOpp && !p.won && !p.ended && !p.lockedCells[i]) cls += ' active';
+      if (p.lockedCells[i]) cls += ' locked';
+      cell.className = cls;
       cell.textContent = p.current[i] === '' ? '' : disp(p.current[i]);
       cellsEl.appendChild(cell);
     }

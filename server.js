@@ -663,6 +663,11 @@ io.on('connection', (socket) => {
   // 현재 로비 즉시 송신
   socket.emit('lobby_update', lobbyView());
 
+  // ── 로비 강제 새로고침 (클라이언트가 반 선택 화면 진입할 때 등) ──
+  socket.on('refresh_lobby', () => {
+    socket.emit('lobby_update', lobbyView());
+  });
+
   // ── 반 입장 (대기 시작) ──
   // payload: { classId: 'class1' | 'class2' | 'class3', practiceLevel: 0..3 }
   socket.on('enter_class', ({ classId, practiceLevel }) => {

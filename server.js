@@ -214,12 +214,14 @@ function makeLv1() {
   if (op === '+') { a = rand(1,8); b = rand(1,9-a); c = a+b; }
   else if (op === '-') { a = rand(2,9); b = rand(1,a-1); c = a-b; }
   else if (op === '*') {
+    // 1×n, n×1, n×n=n 같은 무가치 케이스 배제 (둘 다 2 이상)
     const pairs = [];
-    for (let x=1;x<=9;x++) for (let y=1;y<=9;y++) if (x*y>=1&&x*y<=9) pairs.push([x,y]);
+    for (let x=2;x<=9;x++) for (let y=2;y<=9;y++) if (x*y>=2&&x*y<=9) pairs.push([x,y]);
     [a,b] = pairs[rand(0,pairs.length-1)]; c = a*b;
   } else {
+    // n/1=n, n/n=1 무가치 케이스 배제: 제수(b)는 2 이상, 몫(c)은 2 이상
     const divs = [];
-    for (let y=1;y<=9;y++) for (let x=y;x<=9;x++) if (x%y===0&&x/y>=1&&x/y<=9) divs.push([x,y]);
+    for (let y=2;y<=9;y++) for (let x=y*2;x<=9;x+=y) if (x/y>=2&&x/y<=9) divs.push([x,y]);
     [a,b] = divs[rand(0,divs.length-1)]; c = a/b;
   }
   if (c<1||c>9) return null;

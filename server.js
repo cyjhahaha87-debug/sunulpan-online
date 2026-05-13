@@ -730,7 +730,7 @@ class Match {
 //  방 헬퍼
 // ═══════════════════════════════════════════════
 
-function destroyRoom(room, reason) {
+function destroyRoom(room, reason, opts = {}) {
   if (room.match) {
     if (room.match.timerId) clearInterval(room.match.timerId);
     if (room.match.readyTimeoutId) clearTimeout(room.match.readyTimeoutId);
@@ -746,7 +746,17 @@ function destroyRoom(room, reason) {
       socketToObservedRoom.delete(sid);
     }
   }
-  io.to(room.code).emit('room:closed', { reason });
+  // 방 멤버에게 room:closed 알림 - 단, 본인 의지로 나가는 socket은 제외
+  // (자기가 마지막 한 명이라 방이 사라진 경우 "방에 아무도 없어요" 같은 메시지가
+  //  본인에게 가는 게 어색하므로)
+  const excludeId = opts.excludeSocketId;
+  if (excludeId) {
+    const room$ = io.to(room.code);
+    // socket.id로 제외하려면 except 사용 (socket.io v4 문법)
+    io.to(room.code).except(excludeId).emit('room:closed', { reason });
+  } else {
+    io.to(room.code).emit('room:closed', { reason });
+  }
   io.in(room.code).socketsLeave(room.code);
   delete rooms[room.code];
   broadcastMasterList();
@@ -1160,7 +1170,7 @@ function handleLeave(socket, cause) {
 
   const isExplicit = cause === 'explicit-leave';
   if (isExplicit) {
-    finalizeLeave(room, me, cause);
+    finalizeLeave(room, me, cause, socket.id);
     return;
   }
 
@@ -1170,11 +1180,11 @@ function handleLeave(socket, cause) {
   broadcastRoom(room);
   if (me.leaveTimer) clearTimeout(me.leaveTimer);
   me.leaveTimer = setTimeout(() => {
-    if (me.disconnected) finalizeLeave(room, me, 'grace-expired');
+    if (me.disconnected) finalizeLeave(room, me, 'grace-expired', null);
   }, DISCONNECT_GRACE_MS);
 }
 
-function finalizeLeave(room, me, cause) {
+function finalizeLeave(room, me, cause, leavingSocketId) {
   if (me.leaveTimer) { clearTimeout(me.leaveTimer); me.leaveTimer = null; }
   const inMatch = !!(room.match && !room.match.ended);
 
@@ -1183,11 +1193,20 @@ function finalizeLeave(room, me, cause) {
     room.match.forfeit(me.playerId);
   }
 
+  // 명시적 leave인 경우, 떠나는 socket을 io room에서 즉시 분리
+  // (안 그러면 이후 io.to(room.code).emit()이 이 socket에도 전달됨)
+  if (leavingSocketId) {
+    const s = io.sockets.sockets.get(leavingSocketId);
+    if (s) s.leave(room.code);
+  }
+
   const wasHost = me.isHost;
   room.players = room.players.filter(p => p.playerId !== me.playerId);
 
   if (room.players.length === 0) {
-    destroyRoom(room, '방에 아무도 없어요');
+    // 본인 의지로 나간 경우(leavingSocketId 있음) → 본인은 room:closed 안 받음
+    // ("방에 아무도 없어요"가 본인에게 가는 건 어색)
+    destroyRoom(room, '방에 아무도 없어요', { excludeSocketId: leavingSocketId });
     console.log(`[ROOM-DESTROYED] code=${room.code} reason=empty`);
     return;
   }

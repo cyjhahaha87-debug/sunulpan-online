@@ -199,6 +199,29 @@ const MAX_PLAYERS = 2; // 우선 2인. 추후 4인 확장 시 여기 + 매치 �
 const ROOM_TTL_MS = 30 * 60 * 1000;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 
+// ── 방 이름 생성기 (귀여운 동물 컨셉) ──
+const ROOM_ADJECTIVES = [
+  '졸린', '용감한', '수줍은', '배고픈', '꿈꾸는', '신나는', '느긋한', '엉뚱한',
+  '똑똑한', '귀여운', '씩씩한', '깜찍한', '포근한', '말랑한', '재빠른', '느려터진',
+  '심심한', '들뜬', '심술난', '행복한', '쑥스러운', '호기심많은', '장난꾸러기', '뽀송한',
+  '반짝이는', '통통한', '날쌘', '나른한', '명랑한', '도도한', '엉큼한', '용맹한',
+  '소심한', '대담한', '구름같은', '솜털같은', '꼬물꼬물', '두근두근', '말많은', '조용한',
+];
+
+const ROOM_ANIMALS = [
+  '토끼', '거북이', '다람쥐', '햄스터', '고슴도치', '판다', '코알라', '나무늘보',
+  '여우', '너구리', '족제비', '오소리', '비버', '카피바라', '미어캣', '레서판다',
+  '펭귄', '물범', '수달', '돌고래', '바다거북', '해마', '문어', '오리',
+  '병아리', '오리너구리', '캥거루', '왈라비', '알파카', '라마', '라쿤', '친칠라',
+  '족발이', '새끼곰', '아기사슴', '아기여우', '햇병아리', '꼬마펭귄', '아기늑대', '북극여우',
+];
+
+function genRoomName() {
+  const adj = ROOM_ADJECTIVES[Math.floor(Math.random() * ROOM_ADJECTIVES.length)];
+  const animal = ROOM_ANIMALS[Math.floor(Math.random() * ROOM_ANIMALS.length)];
+  return `${adj} ${animal}`;
+}
+
 function genCode() {
   const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let s;
@@ -235,6 +258,7 @@ function newPlayerState(level) {
 function snapshotRoom(room) {
   return {
     code: room.code,
+    name: room.name,
     players: room.players.map(p => ({
       playerId: p.playerId,
       name: p.name,
@@ -370,6 +394,7 @@ class Match {
     const bP = findPlayerInRoom(this.room, this.sides.B.playerId);
     return {
       code: this.room.code,
+      roomName: this.room.name,
       aName: aP ? aP.name : '플레이어1',
       bName: bP ? bP.name : '플레이어2',
       a: this.publicOpp(this.sides.A.state),
@@ -756,6 +781,7 @@ function masterRoomListPayload() {
     const inMatch = !!(room.match && !room.match.ended);
     list.push({
       code,
+      name: room.name,
       playerCount: activePlayers.length,
       maxPlayers: MAX_PLAYERS,
       players: room.players.map(p => ({
@@ -801,6 +827,7 @@ io.on('connection', (socket) => {
     const playerId = genPlayerId();
     const room = {
       code,
+      name: genRoomName(),
       players: [{
         playerId,
         socketId: socket.id,
@@ -1063,6 +1090,7 @@ io.on('connection', (socket) => {
       // 매치 없으면 방 정보만
       socket.emit('spectate_start', {
         code,
+        roomName: room.name,
         noMatch: true,
         players: room.players.map(p => ({
           name: p.name, isHost: p.isHost, ready: p.ready, disconnected: !!p.disconnected,

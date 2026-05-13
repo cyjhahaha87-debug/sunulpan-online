@@ -2182,6 +2182,15 @@
     border: 1.5px dashed var(--reveal-deep);
     border-radius: 10px;
   }
+  .or-room-name {
+    font-size: 22px;
+    color: var(--chalk);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--line);
+  }
   .or-code-label {
     color: var(--chalk-faint);
     font-size: 13px;
@@ -2541,7 +2550,7 @@
 <div id="vs-screen">
   <div class="vs-topbar">
     <button class="back-btn" onclick="if(confirm('대전을 종료하시겠어요?')) vsExit();">← 종료</button>
-    <div class="vs-title">🆚 <span class="accent">대결</span> 모드</div>
+    <div class="vs-title" id="vs-title">🆚 <span class="accent">대결</span> 모드</div>
     <div style="width:80px;"></div>
   </div>
 
@@ -2808,6 +2817,7 @@
     <!-- 좌측: 방 정보 (코드 + 플레이어 + 액션) -->
     <div class="or-info">
       <div class="or-code-box">
+        <div class="or-room-name" id="or-room-name">🐰 ----</div>
         <div class="or-code-label">방 코드</div>
         <div class="or-code-value" id="or-code-value">----</div>
         <button class="or-code-copy" onclick="copyRoomCode()">📋 코드 복사</button>
@@ -3996,11 +4006,16 @@ function vsExit() {
     document.getElementById('online-room').style.display = 'none';
     document.getElementById('online-entry').style.display = 'none';
     document.getElementById('level-select').style.display = 'flex';
+    // vs-title 원복
+    const title = document.getElementById('vs-title');
+    if (title) title.innerHTML = '🆚 <span class="accent">대결</span> 모드';
     // 온라인 상태 초기화
     resetOnlineState();
     return;
   }
-  // 로컬 대결모드: 기존 로직
+  // 로컬 대결모드: 기존 로직 — title도 원복
+  const title = document.getElementById('vs-title');
+  if (title) title.innerHTML = '🆚 <span class="accent">대결</span> 모드';
   if (vsTimerId) { clearInterval(vsTimerId); vsTimerId = null; }
   document.getElementById('vs-result-overlay').classList.remove('show');
   document.getElementById('vs-A-end-overlay')?.classList.remove('show');
@@ -4651,6 +4666,10 @@ function renderRoom() {
   const state = onlineState.roomState;
   if (!state) return;
 
+  // 방 이름 표시
+  const nameEl = document.getElementById('or-room-name');
+  if (nameEl && state.name) nameEl.textContent = '🐰 ' + state.name;
+
   // 플레이어 목록
   const playersEl = document.getElementById('or-players');
   playersEl.innerHTML = '';
@@ -4867,6 +4886,15 @@ function enterMatchScreen(payload) {
   document.getElementById('vs-result-overlay').classList.remove('show');
   document.getElementById('vs-A-end-overlay')?.classList.remove('show');
   document.getElementById('vs-B-end-overlay')?.classList.remove('show');
+
+  // 상단 타이틀에 방 이름 표시
+  const title = document.getElementById('vs-title');
+  if (title) {
+    const roomName = onlineState.roomState?.name || '';
+    title.innerHTML = roomName
+      ? `🐰 <span class="accent">${escapeHtml(roomName)}</span>`
+      : '🆚 <span class="accent">대결</span> 모드';
+  }
 
   // 키패드는 일단 비활성 (READY/카운트다운 단계)
   ['A', 'B'].forEach(side => {

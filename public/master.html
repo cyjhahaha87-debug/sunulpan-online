@@ -144,15 +144,32 @@
 
   .rc-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 8px;
+  }
+  .rc-name-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .rc-name {
+    font-size: 19px;
+    color: var(--chalk);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .rc-code {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 28px;
+    font-size: 13px;
     letter-spacing: 0.15em;
     color: var(--reveal);
-    font-weight: 700;
+    opacity: 0.8;
   }
   .rc-phase {
     font-size: 11px;
@@ -263,6 +280,12 @@
     font-size: 22px;
     letter-spacing: 0.18em;
     color: var(--reveal);
+  }
+  .spec-room-name {
+    font-size: 18px;
+    color: var(--chalk);
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
   .spec-phase-tag {
     font-size: 11px;
@@ -519,6 +542,7 @@
     <div class="left">
       <button class="back-btn" onclick="leaveSpectate()">← 목록</button>
       <div class="spec-title">관전 중</div>
+      <div class="spec-room-name" id="spec-room-name">🐰 ----</div>
       <div class="spec-code" id="spec-code">----</div>
       <div class="spec-phase-tag" id="spec-phase">--</div>
     </div>
@@ -756,7 +780,10 @@ function renderRoomList() {
 
     card.innerHTML = `
       <div class="rc-header">
-        <div class="rc-code">${r.code}</div>
+        <div class="rc-name-block">
+          <div class="rc-name">🐰 ${escapeHtml(r.name || '(이름 없음)')}</div>
+          <div class="rc-code">${r.code}</div>
+        </div>
         <div class="rc-phase ${phaseClass}">${phaseLabel}</div>
       </div>
       <div class="rc-players">${playersHtml}</div>
@@ -796,6 +823,8 @@ function renderSpectate() {
   const d = state.spectateData;
   if (!d) return;
   document.getElementById('spec-code').textContent = d.code;
+  const nameEl = document.getElementById('spec-room-name');
+  if (nameEl) nameEl.textContent = '🐰 ' + (d.roomName || '(이름 없음)');
 
   // 매치 없는 방
   if (d.noMatch) {

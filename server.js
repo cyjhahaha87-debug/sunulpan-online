@@ -9,9 +9,161 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 const { Server } = require('socket.io');
 
-const SERVER_VERSION = 'v2.0.0-room';
+const SERVER_VERSION = 'v2.2.0-sheets';
+
+// ═══════════════════════════════════════════════
+//  랭킹 (방제 기반, 익명)
+//  - 매치 종료(시간 만료/완전 종료) 시 승자의 (roomName, score) 기록
+//  - forfeit/무승부는 기록 안 함 (정상 경기 결과만)
+//  - 저장: Google Sheets (환경변수 설정 시) + 로컬 JSON 백업
+//    환경변수가 없으면 로컬 JSON만 사용 (개발/오프라인 환경)
+// ═══════════════════════════════════════════════
+
+const RANKING_FILE = path.join(__dirname, 'data', 'rankings.json');
+const RANKING_KEEP_MAX = 200; // 상위 200개까지 메모리/파일에 보관 (클라엔 50개 노출)
+const RANKING_TOP_N = 50;     // 클라이언트에 보내는 상위 갯수
+
+let rankings = []; // [{ roomName, score, recordedAt }] (score desc 정렬 유지)
+
+// ── Google Sheets 연동 (Apps Script 웹앱 방식) ──
+// 환경변수 (1개만 등록하면 됨):
+//   SHEETS_WEBAPP_URL - Apps Script 웹앱 배포 URL
+//   (https://script.google.com/macros/s/.../exec 형태)
+//
+// 시트에 점수 한 줄 추가하기:  POST { roomName, score, recordedAt }
+// 시트에서 전체 랭킹 받아오기: GET → JSON 배열
+// (Google Cloud 설정/서비스 계정 불필요 — Apps Script만으로 동작)
+
+const SHEETS_WEBAPP_URL = process.env.SHEETS_WEBAPP_URL || '';
+const SHEETS_ENABLED = !!SHEETS_WEBAPP_URL;
+
+async function initSheets() {
+  if (!SHEETS_ENABLED) {
+    console.log('[SHEETS] disabled (SHEETS_WEBAPP_URL not set) - using local JSON only');
+    return;
+  }
+  console.log(`[SHEETS] enabled, webapp URL = ${SHEETS_WEBAPP_URL.slice(0, 60)}...`);
+}
+
+async function loadFromSheets() {
+  if (!SHEETS_ENABLED) return null;
+  try {
+    // Node 18+ 의 글로벌 fetch 사용
+    const res = await fetch(SHEETS_WEBAPP_URL, { method: 'GET' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('not array');
+    const entries = data
+      .filter(e => e && e.roomName && typeof e.score === 'number')
+      .map(e => ({
+        roomName: String(e.roomName),
+        score: parseInt(e.score, 10) || 0,
+        recordedAt: e.recordedAt || '',
+      }))
+      .filter(e => e.score > 0);
+    entries.sort((a, b) => b.score - a.score);
+    console.log(`[SHEETS] loaded ${entries.length} entries from web app`);
+    return entries;
+  } catch (e) {
+    console.error('[SHEETS] load failed:', e.message);
+    return null;
+  }
+}
+
+async function appendToSheets(entry) {
+  if (!SHEETS_ENABLED) return false;
+  try {
+    const res = await fetch(SHEETS_WEBAPP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return true;
+  } catch (e) {
+    console.error('[SHEETS] append failed:', e.message);
+    return false;
+  }
+}
+
+// ── 로컬 JSON (백업) ──
+function loadRankingsLocal() {
+  try {
+    if (fs.existsSync(RANKING_FILE)) {
+      const raw = fs.readFileSync(RANKING_FILE, 'utf8');
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return arr.filter(e => e && typeof e.score === 'number' && typeof e.roomName === 'string');
+      }
+    }
+  } catch (e) {
+    console.error('[RANKING] local load failed:', e.message);
+  }
+  return [];
+}
+
+let saveTimeoutId = null;
+function saveRankingsLocal() {
+  if (saveTimeoutId) clearTimeout(saveTimeoutId);
+  saveTimeoutId = setTimeout(() => {
+    try {
+      fs.mkdirSync(path.dirname(RANKING_FILE), { recursive: true });
+      fs.writeFileSync(RANKING_FILE, JSON.stringify(rankings, null, 2), 'utf8');
+    } catch (e) {
+      console.error('[RANKING] local save failed:', e.message);
+    }
+    saveTimeoutId = null;
+  }, 500);
+}
+
+// ── 통합 로드 (서버 부팅 시) ──
+//   Sheets 활성화돼있으면 Sheets에서, 아니면 로컬 JSON에서
+async function loadRankings() {
+  await initSheets();
+  if (SHEETS_ENABLED) {
+    const fromSheet = await loadFromSheets();
+    if (fromSheet) {
+      rankings = fromSheet;
+      console.log(`[RANKING] loaded ${rankings.length} from Sheets`);
+      // 로컬에도 백업 (선택적)
+      saveRankingsLocal();
+      return;
+    }
+  }
+  // fallback: 로컬 JSON
+  rankings = loadRankingsLocal();
+  rankings.sort((a, b) => b.score - a.score);
+  console.log(`[RANKING] loaded ${rankings.length} from local JSON`);
+}
+
+function addRankingEntry(roomName, score) {
+  if (!roomName || typeof score !== 'number' || score <= 0) return;
+  const entry = {
+    roomName,
+    score,
+    recordedAt: new Date().toISOString(),
+  };
+  rankings.push(entry);
+  rankings.sort((a, b) => b.score - a.score);
+  if (rankings.length > RANKING_KEEP_MAX) rankings.length = RANKING_KEEP_MAX;
+
+  // 1) Sheets에 비동기 append (실패해도 게임 진행에 영향 없음)
+  appendToSheets(entry).catch(() => {});
+  // 2) 로컬 JSON도 백업으로 같이 저장
+  saveRankingsLocal();
+  // 3) 모든 접속자에게 즉시 푸시
+  io.emit('ranking:update', rankings.slice(0, RANKING_TOP_N));
+}
+
+function topRankings() {
+  return rankings.slice(0, RANKING_TOP_N);
+}
+
+// 부팅 시 비동기 로드 (서버는 일단 띄우고, 데이터는 곧 도착)
+loadRankings().catch(e => console.error('[RANKING] load error:', e.message));
 
 const app = express();
 const server = http.createServer(app);
@@ -686,6 +838,13 @@ class Match {
       bName: bP ? bP.name : '플레이어2',
     };
 
+    // 랭킹 기록: 정상 종료(시간 만료)이고 승자가 있을 때만, 방제+승자 점수로
+    if (winner) {
+      const winnerScore = winner === 'A' ? aScore : bScore;
+      addRankingEntry(this.room.name, winnerScore);
+      console.log(`[RANKING+] room="${this.room.name}" score=${winnerScore} (winner=${winner})`);
+    }
+
     this.refreshSocketIds();
     const aSocket = this.sides.A.socketId;
     const bSocket = this.sides.B.socketId;
@@ -830,6 +989,14 @@ setInterval(broadcastMasterList, 2000);
 
 io.on('connection', (socket) => {
   console.log('[+]', socket.id);
+
+  // 접속 시 자동으로 랭킹 전송 (메인/마스터 어디서든 즉시 받음)
+  socket.emit('ranking:update', topRankings());
+
+  // 명시적 요청 (페이지 진입 시 등)
+  socket.on('ranking:get', () => {
+    socket.emit('ranking:update', topRankings());
+  });
 
   // ── 방 만들기 ──
   socket.on('room:create', () => {

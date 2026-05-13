@@ -89,6 +89,142 @@ http://<서버주소>/master
 | `playing` | 실제 게임 진행 | 본인 사이드만 활성 | 2:00에서 카운트 |
 | `ended` | 매치 종료 | 비활성 | 정지 |
 
+## 랭킹 시스템 (v2.2.0) ✨ NEW
+
+매치가 정상 종료(시간 만료)되고 승자가 있을 때, 방제 + 승자 점수를 익명으로 기록합니다. 매치당 1행. forfeit/무승부는 기록하지 않음. 개인을 식별할 수 있는 정보는 어디에도 저장하지 않습니다 (방제는 서버가 무작위로 부여한 동물 이름이라 비식별 정보).
+
+랭킹 표시: 온라인 진입 화면 우측 "🏆 명예의 전당" 패널, 상위 50개.
+
+### 데이터 저장 방식
+
+두 가지 모드를 자동 분기:
+
+**A. Google Sheets 모드 (권장 — 영구 보존)**
+- 환경변수 3개를 설정하면 자동 활성화
+- 매치 결과가 즉시 Google 스프레드시트에 append됨
+- 서버 재시작/재배포/슬립 후에도 데이터 유지
+
+**B. 로컬 JSON 모드 (기본 — 환경변수 없을 때)**
+- `data/rankings.json` 파일에 저장
+- Render 무료 플랜에선 서버 재시작/슬립 시 초기화됨
+
+두 모드 동시 사용 가능 — Sheets에 저장하더라도 로컬 JSON에도 백업으로 같이 씁니다.
+
+### Google Sheets 연동 설정 (Apps Script 방식 — 5분이면 끝)
+
+Google Cloud 설정 불필요, 결제 등록 불필요. 그냥 스프레드시트 + Apps Script만 사용.
+
+**1단계: Google 스프레드시트 만들기**
+
+- https://sheets.google.com 에서 빈 스프레드시트 만들기
+- 이름: 아무거나 (예: `수널판 랭킹`)
+- 첫 줄(A1, B1, C1)에 헤더 입력:
+  - A1: `roomName`
+  - B1: `score`
+  - C1: `recordedAt`
+
+**2단계: Apps Script 열기**
+
+- 시트 상단 메뉴 → "확장 프로그램" → "Apps Script"
+- 새 탭으로 코드 편집기가 열림
+- 기본 함수가 있으면 다 지우고 아래 코드를 통째로 붙여넣기:
+
+```javascript
+// 수널판 랭킹 — Google Apps Script 웹앱
+const SHEET_NAME = 'Sheet1'; // 시트 탭 이름. 한글 '시트1'이면 그걸로 바꾸기
+
+// GET: 시트에서 전체 랭킹 읽어서 JSON으로 반환
+function doGet() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) return _json([]);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return _json([]);
+  const values = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  const entries = values
+    .filter(r => r[0] && r[1] !== '' && r[1] !== null)
+    .map(r => ({
+      roomName: String(r[0]),
+      score: Number(r[1]) || 0,
+      recordedAt: r[2] ? String(r[2]) : '',
+    }))
+    .filter(e => e.score > 0);
+  return _json(entries);
+}
+
+// POST: { roomName, score, recordedAt } 받아 시트에 한 줄 추가
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (!data.roomName || typeof data.score !== 'number') {
+      return _json({ ok: false, error: 'invalid payload' });
+    }
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    sheet.appendRow([data.roomName, data.score, data.recordedAt || new Date().toISOString()]);
+    return _json({ ok: true });
+  } catch (err) {
+    return _json({ ok: false, error: String(err) });
+  }
+}
+
+function _json(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+- 저장 (디스크 아이콘 또는 Ctrl+S) — 프로젝트 이름 묻거든 `수널판 랭킹 API` 같은 거 입력
+
+**3단계: 웹앱으로 배포**
+
+- 코드 편집기 우상단 "배포" 버튼 → "새 배포"
+- 톱니바퀴 아이콘 → "웹 앱" 선택
+- 설정:
+  - **설명**: 아무거나 (예: `v1`)
+  - **다음 사용자로 실행**: "나(본인 이메일)"
+  - **액세스 권한**: **"모든 사용자"** ← 중요!
+- "배포" 클릭
+- 첫 배포라면 권한 승인 팝업 뜸:
+  - "엑세스 권한 검토" → 본인 Google 계정 선택
+  - "안전하지 않음으로 이동" → "..."이 만든 ... (안전하지 않음)" 클릭 (본인이 만든 거니까 안전)
+  - "허용"
+- 배포 완료되면 **웹앱 URL** 표시됨: `https://script.google.com/macros/s/.../exec`
+- 이 URL을 복사 (메모해두기)
+
+**4단계: URL이 동작하는지 확인 (선택)**
+
+- 새 탭에서 그 URL을 그대로 열어보기
+- `[]` (빈 배열) 또는 기존 행이 있으면 JSON 배열이 보이면 OK
+- 시트가 안 보이거나 권한 에러 뜨면 3단계 액세스 권한이 "모든 사용자"인지 다시 확인
+
+**5단계: Render 환경변수 등록**
+
+Render 대시보드 → 해당 서비스 → "Environment" 탭 → 환경변수 1개만 추가:
+
+| Key | Value |
+|---|---|
+| `SHEETS_WEBAPP_URL` | 3단계의 웹앱 URL |
+
+저장하면 Render가 자동 재배포. 서버 로그(Render 대시보드 → Logs)에 `[SHEETS] enabled, webapp URL = ...` 가 뜨면 성공.
+
+### 확인하기
+
+- 매치 한 판 정상 종료시키면 시트에 한 줄 추가됨
+- 메인 → 온라인 진입 화면 → 우측 패널에 즉시 반영
+- 시트는 평소 Google Sheets로 직접 열어서 확인/엑셀 내보내기/줄 삭제 등 자유롭게 관리 가능
+
+### 트러블슈팅
+
+- 서버 로그에 `[SHEETS] disabled` 가 뜨면 → Render 환경변수 등록 안 됨
+- 서버 로그에 `[SHEETS] load failed: HTTP 401` 또는 `403` 이 뜨면 → 3단계 액세스 권한이 "모든 사용자" 아닐 가능성. 배포 설정 다시 확인
+- 시트에 한글이 깨진다면 → Apps Script 파일이 UTF-8로 저장됐는지 확인 (기본은 UTF-8)
+- Apps Script 무료 호출 한도: 일 20,000회 — 학교 규모는 아주 여유
+
+### 코드 업데이트할 때
+
+Apps Script 코드를 나중에 수정했다면 "배포" → "배포 관리" → 기존 배포 옆 연필 → "버전: 새 버전" → 배포. 이때 **웹앱 URL은 바뀌지 않음** (Render 환경변수 그대로 두면 됨).
+
+
 ## 로컬 실행
 
 ```bash

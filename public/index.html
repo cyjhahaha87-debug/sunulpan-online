@@ -2062,40 +2062,135 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 24px;
-    gap: 36px;
+    padding: 32px 24px;
+    gap: 28px;
   }
   .oe-prompt {
-    font-size: 26px;
+    font-size: 24px;
     color: var(--chalk-dim);
     letter-spacing: 0.05em;
     text-align: center;
   }
+  /* 좌(옵션 카드+코드입력) / 우(랭킹) 2열 */
+  .oe-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+    gap: 28px;
+    width: 100%;
+    max-width: 1100px;
+    align-items: start;
+  }
+  .oe-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  @media (max-width: 900px) {
+    .oe-content {
+      grid-template-columns: 1fr;
+    }
+  }
   .oe-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    gap: 20px;
     width: 100%;
-    max-width: 720px;
   }
   .oe-card {
     background: rgba(0,0,0,0.25);
     border: 2px solid var(--line-strong);
     border-radius: 16px;
-    padding: 36px 24px;
+    padding: 32px 20px;
     text-align: center;
     cursor: pointer;
     transition: transform 0.15s, border-color 0.15s, background 0.15s;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }
   .oe-card:hover {
     transform: translateY(-4px);
     border-color: var(--reveal);
     background: rgba(232,196,104,0.08);
   }
+
+  /* 랭킹 보드 */
+  .oe-ranking {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 18px 12px;
+    max-height: 520px;
+    display: flex;
+    flex-direction: column;
+  }
+  .oe-ranking-title {
+    text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 0.08em;
+    color: var(--reveal);
+  }
+  .oe-ranking-subtitle {
+    text-align: center;
+    font-size: 12px;
+    color: var(--chalk-faint);
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .oe-ranking-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 4px 6px;
+    overflow-y: auto;
+    flex: 1;
+    counter-reset: rank;
+  }
+  .oe-ranking-list li {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 4px;
+    border-bottom: 1px dotted rgba(245,241,232,0.08);
+    font-size: 14px;
+  }
+  .oe-ranking-list li:last-child { border-bottom: 0; }
+  .oe-ranking-rank {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--chalk-faint);
+    text-align: right;
+  }
+  .oe-ranking-list li.gold .oe-ranking-rank { color: var(--reveal); font-weight: 700; font-size: 16px; }
+  .oe-ranking-list li.silver .oe-ranking-rank { color: #c0c0c0; font-weight: 700; font-size: 15px; }
+  .oe-ranking-list li.bronze .oe-ranking-rank { color: #cd7f32; font-weight: 700; font-size: 14px; }
+  .oe-ranking-name {
+    color: var(--chalk);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .oe-ranking-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: var(--reveal);
+    font-size: 15px;
+  }
+  .oe-ranking-empty {
+    text-align: center;
+    color: var(--chalk-faint);
+    padding: 30px 10px !important;
+    font-style: italic;
+    grid-template-columns: 1fr !important;
+  }
+  .oe-ranking-list::-webkit-scrollbar { width: 6px; }
+  .oe-ranking-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 3px; }
+  .oe-ranking-list::-webkit-scrollbar-thumb { background: rgba(245,241,232,0.2); border-radius: 3px; }
   .oe-icon {
     font-size: 56px;
     line-height: 1;
@@ -2784,25 +2879,37 @@
   </div>
   <div class="oe-wrap">
     <div class="oe-prompt">방을 만들거나, 친구의 방 코드를 입력해 참여하세요</div>
-    <div class="oe-options">
-      <div class="oe-card" onclick="onlineCreateRoom()">
-        <div class="oe-icon">🏠</div>
-        <div class="oe-name">방 만들기</div>
-        <div class="oe-desc">방 코드를 발급받아 친구를 초대</div>
+    <div class="oe-content">
+      <div class="oe-left">
+        <div class="oe-options">
+          <div class="oe-card" onclick="onlineCreateRoom()">
+            <div class="oe-icon">🏠</div>
+            <div class="oe-name">방 만들기</div>
+            <div class="oe-desc">방 코드를 발급받아 친구를 초대</div>
+          </div>
+          <div class="oe-card" onclick="showJoinCodeInput()">
+            <div class="oe-icon">🚪</div>
+            <div class="oe-name">방 참여</div>
+            <div class="oe-desc">친구가 알려준 4자리 코드 입력</div>
+          </div>
+        </div>
+        <!-- 방 코드 입력 영역 (참여 클릭 시 표시) -->
+        <div class="code-input-wrap" id="join-code-wrap" style="display:none;">
+          <input type="text" class="code-input" id="join-code-input" maxlength="4" placeholder="ABCD" autocomplete="off"
+                 oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')onlineJoinRoom()">
+          <button class="code-input-btn" id="join-code-btn" onclick="onlineJoinRoom()">참여하기</button>
+        </div>
+        <div class="online-conn-status" id="online-conn-status">서버 연결 중...</div>
       </div>
-      <div class="oe-card" onclick="showJoinCodeInput()">
-        <div class="oe-icon">🚪</div>
-        <div class="oe-name">방 참여</div>
-        <div class="oe-desc">친구가 알려준 4자리 코드 입력</div>
+      <!-- 우측: 랭킹 보드 -->
+      <div class="oe-ranking">
+        <div class="oe-ranking-title">🏆 명예의 전당</div>
+        <div class="oe-ranking-subtitle">방제별 최고 점수 · 상위 50</div>
+        <ol class="oe-ranking-list" id="oe-ranking-list">
+          <li class="oe-ranking-empty">아직 기록이 없어요</li>
+        </ol>
       </div>
     </div>
-    <!-- 방 코드 입력 영역 (참여 클릭 시 표시) -->
-    <div class="code-input-wrap" id="join-code-wrap" style="display:none;">
-      <input type="text" class="code-input" id="join-code-input" maxlength="4" placeholder="ABCD" autocomplete="off"
-             oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')onlineJoinRoom()">
-      <button class="code-input-btn" id="join-code-btn" onclick="onlineJoinRoom()">참여하기</button>
-    </div>
-    <div class="online-conn-status" id="online-conn-status">서버 연결 중...</div>
   </div>
 </div>
 
@@ -4370,6 +4477,10 @@ function onlineEnterFlow(lv) {
   // 입력창은 처음엔 숨김
   document.getElementById('join-code-wrap').style.display = 'none';
   ensureOnlineSocket();
+  // 이미 연결돼 있으면 즉시 랭킹 요청 (연결 안 됐으면 connect 후 자동 푸시됨)
+  if (onlineSocket && onlineSocket.connected) {
+    onlineSocket.emit('ranking:get');
+  }
 }
 
 function onlineBackToMenu() {
@@ -4425,6 +4536,11 @@ function ensureOnlineSocket() {
     alert(reason || '오류가 발생했어요.');
   });
 
+  // ── 랭킹 ──
+  onlineSocket.on('ranking:update', (list) => {
+    renderRanking(list || []);
+  });
+
   onlineSocket.on('room:closed', ({ reason }) => {
     alert(reason || '방이 종료되었어요.');
     // 모든 온라인 화면 닫고 메뉴로
@@ -4461,10 +4577,11 @@ function ensureOnlineSocket() {
   });
 
   // ── 방장 변경 ──
+  // 별도 알림은 띄우지 않음. isHost는 room:state로 자동 갱신되고,
+  // 방장이 되면 [매치 시작] 버튼이 자연스럽게 표시됨.
   onlineSocket.on('host_changed', ({ playerId, name }) => {
-    if (playerId === onlineState.myId) {
-      alert('방장이 나가서 당신이 방장이 되었어요.');
-    }
+    // (silent) — 필요시 디버그용:
+    // if (playerId === onlineState.myId) console.log('[host] 내가 방장이 됨');
   });
 
   // ── 매치 시작 ──
@@ -4754,6 +4871,27 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
+}
+
+// ────────────────────────────────────────────────
+//  랭킹 보드 (온라인 진입 화면)
+// ────────────────────────────────────────────────
+function renderRanking(list) {
+  const el = document.getElementById('oe-ranking-list');
+  if (!el) return;
+  if (!list || list.length === 0) {
+    el.innerHTML = '<li class="oe-ranking-empty">아직 기록이 없어요</li>';
+    return;
+  }
+  const medal = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1);
+  const cls = (i) => i === 0 ? ' class="gold"' : i === 1 ? ' class="silver"' : i === 2 ? ' class="bronze"' : '';
+  el.innerHTML = list.map((r, i) => `
+    <li${cls(i)}>
+      <span class="oe-ranking-rank">${medal(i)}</span>
+      <span class="oe-ranking-name">🐰 ${escapeHtml(r.roomName || '?')}</span>
+      <span class="oe-ranking-score">${r.score}</span>
+    </li>
+  `).join('');
 }
 
 // ────────────────────────────────────────────────

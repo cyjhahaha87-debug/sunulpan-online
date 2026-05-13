@@ -22,10 +22,14 @@ const io = new Server(server, {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/master', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'master.html'));
+});
 app.get('/health', (_req, res) => res.json({
   ok: true,
   version: SERVER_VERSION,
   rooms: Object.keys(rooms).length,
+  observers: masterObservers.size,
 }));
 
 // ═══════════════════════════════════════════════
@@ -188,6 +192,8 @@ function calcScore(tries, lv) {
 
 const rooms = {};
 const socketToRoom = new Map(); // socketId -> { code, playerId }
+const masterObservers = new Set(); // socketId 집합 - 방 목록 푸시 받는 마스터 클라들
+const socketToObservedRoom = new Map(); // socketId -> roomCode (관전 중인 방)
 
 const MAX_PLAYERS = 2; // 우선 2인. 추후 4인 확장 시 여기 + 매치 클래스만 손보면 됨.
 const ROOM_TTL_MS = 30 * 60 * 1000;
@@ -245,6 +251,7 @@ function snapshotRoom(room) {
 function broadcastRoom(room) {
   io.to(room.code).emit('room:state', snapshotRoom(room));
   room.lastActivity = Date.now();
+  broadcastMasterList();
 }
 
 function findPlayerInRoom(room, playerId) {
@@ -357,12 +364,38 @@ class Match {
     };
   }
 
+  // 관전자용 페이로드 - A/B 양쪽을 publicOpp 수준으로 (secret 노출 없음)
+  spectatorPayload() {
+    const aP = findPlayerInRoom(this.room, this.sides.A.playerId);
+    const bP = findPlayerInRoom(this.room, this.sides.B.playerId);
+    return {
+      code: this.room.code,
+      aName: aP ? aP.name : '플레이어1',
+      bName: bP ? bP.name : '플레이어2',
+      a: this.publicOpp(this.sides.A.state),
+      b: this.publicOpp(this.sides.B.state),
+      phase: this.phase,
+      aReady: this.sides.A.ready,
+      bReady: this.sides.B.ready,
+    };
+  }
+
+  // 관전자 socket들에게 이벤트 전달
+  emitToObservers(event, payload) {
+    if (!this.room.observers || this.room.observers.size === 0) return;
+    for (const sid of this.room.observers) {
+      io.to(sid).emit(event, payload);
+    }
+  }
+
   broadcastState() {
     this.refreshSocketIds();
     const aSocket = this.sides.A.socketId;
     const bSocket = this.sides.B.socketId;
     if (aSocket) io.to(aSocket).emit('match_state', this.selfPayload('A'));
     if (bSocket) io.to(bSocket).emit('match_state', this.selfPayload('B'));
+    // 관전자에게도
+    this.emitToObservers('spectate_state', this.spectatorPayload());
   }
 
   broadcastLiveInput(side) {
@@ -376,6 +409,8 @@ class Match {
     };
     const otherSocket = this.sides[this.otherSide(side)].socketId;
     if (otherSocket) io.to(otherSocket).emit('opp_live_input', liveData);
+    // 관전자에게도 (어느 쪽 입력인지 side 정보 포함)
+    this.emitToObservers('spectate_live_input', liveData);
   }
 
   startReadyPhase() {
@@ -407,6 +442,7 @@ class Match {
       const payload = { label };
       if (aSocket) io.to(aSocket).emit('countdown', payload);
       if (bSocket) io.to(bSocket).emit('countdown', payload);
+      this.emitToObservers('countdown', payload);
     };
 
     this.broadcastState();
@@ -445,6 +481,7 @@ class Match {
     const bSocket = this.sides.B.socketId;
     if (aSocket) io.to(aSocket).emit('match_cancelled', payload);
     if (bSocket) io.to(bSocket).emit('match_cancelled', payload);
+    this.emitToObservers('match_cancelled', payload);
   }
 
   startTimer() {
@@ -470,6 +507,7 @@ class Match {
       const bSocket = this.sides.B.socketId;
       if (aSocket) io.to(aSocket).emit('match_tick', tickPayload);
       if (bSocket) io.to(bSocket).emit('match_tick', tickPayload);
+      this.emitToObservers('match_tick', tickPayload);
       if (allEnded) this.finish();
     }, 1000);
   }
@@ -628,6 +666,7 @@ class Match {
     const bSocket = this.sides.B.socketId;
     if (aSocket) io.to(aSocket).emit('match_end', { ...result, mySide: 'A' });
     if (bSocket) io.to(bSocket).emit('match_end', { ...result, mySide: 'B' });
+    this.emitToObservers('match_end', { ...result, spectator: true });
   }
 
   // 한 쪽 플레이어가 방을 떠나면 매치 즉시 종료 (상대 자동 승)
@@ -646,15 +685,19 @@ class Match {
     const otherSocket = this.sides[other].socketId;
     const aP = findPlayerInRoom(this.room, this.sides.A.playerId);
     const bP = findPlayerInRoom(this.room, this.sides.B.playerId);
-    if (otherSocket) io.to(otherSocket).emit('match_end', {
+    const baseResult = {
       aScore: this.sides.A.state.totalScore,
       bScore: this.sides.B.state.totalScore,
       winner: other,
       aName: aP ? aP.name : '플레이어1',
       bName: bP ? bP.name : '플레이어2',
-      mySide: other,
       forfeit: true,
+    };
+    if (otherSocket) io.to(otherSocket).emit('match_end', {
+      ...baseResult,
+      mySide: other,
     });
+    this.emitToObservers('match_end', { ...baseResult, spectator: true });
   }
 }
 
@@ -671,9 +714,17 @@ function destroyRoom(room, reason) {
   room.players.forEach(p => {
     if (p.leaveTimer) clearTimeout(p.leaveTimer);
   });
+  // 관전자에게도 방 종료 알림
+  if (room.observers) {
+    for (const sid of room.observers) {
+      io.to(sid).emit('spectate_room_closed', { code: room.code, reason });
+      socketToObservedRoom.delete(sid);
+    }
+  }
   io.to(room.code).emit('room:closed', { reason });
   io.in(room.code).socketsLeave(room.code);
   delete rooms[room.code];
+  broadcastMasterList();
 }
 
 // 매치 후 방 재사용을 위해 매치 상태 리셋 (방은 유지)
@@ -689,6 +740,53 @@ function resetMatchInRoom(room) {
     p.side = null;
   });
 }
+
+// ═══════════════════════════════════════════════
+//  마스터(관전자) 헬퍼
+//  - 마스터는 player 카운트에 포함되지 않음
+//  - 방 참가자에게 노출되지 않음 (room:state.players에 안 들어감)
+//  - 방 목록 자동 푸시 + 특정 방 매치 관전
+// ═══════════════════════════════════════════════
+
+function masterRoomListPayload() {
+  const list = [];
+  for (const code of Object.keys(rooms)) {
+    const room = rooms[code];
+    const activePlayers = room.players.filter(p => !p.disconnected);
+    const inMatch = !!(room.match && !room.match.ended);
+    list.push({
+      code,
+      playerCount: activePlayers.length,
+      maxPlayers: MAX_PLAYERS,
+      players: room.players.map(p => ({
+        name: p.name,
+        isHost: p.isHost,
+        ready: p.ready,
+        disconnected: !!p.disconnected,
+      })),
+      inMatch,
+      matchPhase: inMatch ? room.match.phase : null,
+      aScore: inMatch ? room.match.sides.A.state.totalScore : null,
+      bScore: inMatch ? room.match.sides.B.state.totalScore : null,
+      aRemainSec: inMatch ? room.match.sides.A.state.remainSec : null,
+      bRemainSec: inMatch ? room.match.sides.B.state.remainSec : null,
+      observerCount: room.observers ? room.observers.size : 0,
+      createdAt: room.createdAt,
+    });
+  }
+  return { rooms: list, serverTime: Date.now() };
+}
+
+function broadcastMasterList() {
+  if (masterObservers.size === 0) return;
+  const payload = masterRoomListPayload();
+  for (const sid of masterObservers) {
+    io.to(sid).emit('master:list', payload);
+  }
+}
+
+// 정기적으로 마스터에 목록 푸시 (매치 진행 중 점수/시간 갱신용)
+setInterval(broadcastMasterList, 2000);
 
 // ═══════════════════════════════════════════════
 //  소켓 핸들러
@@ -715,6 +813,7 @@ io.on('connection', (socket) => {
         leaveTimer: null,
       }],
       match: null,
+      observers: new Set(), // socketId 집합. player에겐 안 보이는 관전자
       createdAt: Date.now(),
       lastActivity: Date.now(),
     };
@@ -917,6 +1016,80 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ════════════════════════════════════════════
+  //  마스터(관전자) 이벤트
+  // ════════════════════════════════════════════
+
+  // 마스터로 등록 + 즉시 방 목록 받기
+  socket.on('master:hello', () => {
+    masterObservers.add(socket.id);
+    socket.emit('master:list', masterRoomListPayload());
+    console.log(`[MASTER+] socket=${socket.id.slice(0,6)} total=${masterObservers.size}`);
+  });
+
+  // 방 목록 강제 새로고침
+  socket.on('master:refresh', () => {
+    if (!masterObservers.has(socket.id)) return;
+    socket.emit('master:list', masterRoomListPayload());
+  });
+
+  // 특정 방 관전 시작
+  socket.on('master:spectate', ({ code }) => {
+    if (!masterObservers.has(socket.id)) {
+      socket.emit('master:error', { reason: '마스터로 등록되지 않았어요.' });
+      return;
+    }
+    code = (code || '').toUpperCase().trim();
+    const room = rooms[code];
+    if (!room) {
+      socket.emit('master:error', { reason: '방이 없어요.' });
+      return;
+    }
+    // 이전에 다른 방 관전 중이었으면 정리
+    const prevCode = socketToObservedRoom.get(socket.id);
+    if (prevCode && prevCode !== code && rooms[prevCode]) {
+      rooms[prevCode].observers.delete(socket.id);
+    }
+    room.observers.add(socket.id);
+    socketToObservedRoom.set(socket.id, code);
+
+    // 즉시 현재 상태 보내기
+    if (room.match && !room.match.ended) {
+      socket.emit('spectate_start', {
+        code,
+        ...room.match.spectatorPayload(),
+      });
+    } else {
+      // 매치 없으면 방 정보만
+      socket.emit('spectate_start', {
+        code,
+        noMatch: true,
+        players: room.players.map(p => ({
+          name: p.name, isHost: p.isHost, ready: p.ready, disconnected: !!p.disconnected,
+        })),
+      });
+    }
+    console.log(`[MASTER-SPECTATE] socket=${socket.id.slice(0,6)} code=${code}`);
+  });
+
+  // 관전 종료 (방 목록으로 복귀)
+  socket.on('master:leave_spectate', () => {
+    const code = socketToObservedRoom.get(socket.id);
+    if (code && rooms[code]) {
+      rooms[code].observers.delete(socket.id);
+    }
+    socketToObservedRoom.delete(socket.id);
+    // 새 방 목록을 다시 보내줌
+    if (masterObservers.has(socket.id)) {
+      socket.emit('master:list', masterRoomListPayload());
+    }
+  });
+
+  // 마스터 종료 (선택적)
+  socket.on('master:bye', () => {
+    cleanupMaster(socket.id);
+  });
+
   // ── 명시적 나가기 ──
   socket.on('room:leave', () => {
     handleLeave(socket, 'explicit-leave');
@@ -925,9 +1098,23 @@ io.on('connection', (socket) => {
   // ── 끊김 ──
   socket.on('disconnect', () => {
     console.log('[-]', socket.id);
+    cleanupMaster(socket.id);
     handleLeave(socket, 'disconnect');
   });
 });
+
+// 마스터/관전자 정리
+function cleanupMaster(socketId) {
+  if (masterObservers.has(socketId)) {
+    masterObservers.delete(socketId);
+    console.log(`[MASTER-] socket=${socketId.slice(0,6)} total=${masterObservers.size}`);
+  }
+  const code = socketToObservedRoom.get(socketId);
+  if (code && rooms[code]) {
+    rooms[code].observers.delete(socketId);
+  }
+  socketToObservedRoom.delete(socketId);
+}
 
 // ═══════════════════════════════════════════════
 //  나가기 처리 (grace period 포함)

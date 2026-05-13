@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수널판 — 마스터 관전</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --board: #1f3d2e;
+    --board-dark: #16291f;
+    --chalk: #f5f1e8;
+    --chalk-dim: #c9c0a8;
+    --chalk-faint: #8a8474;
+    --strike: #d9533b;
+    --strike-deep: #8b2818;
+    --ball: #6ba6d6;
+    --ball-deep: #2b5a85;
+    --reveal: #e8c468;
+    --reveal-deep: #8a6618;
+    --line: rgba(245, 241, 232, 0.18);
+    --line-strong: rgba(245, 241, 232, 0.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    min-height: 100vh;
+    font-family: 'Gowun Dodum', sans-serif;
+    color: var(--chalk);
+    background: var(--board);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.04), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(0,0,0,0.3), transparent 60%);
+  }
+
+  /* ── 상단바 ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: rgba(0,0,0,0.25);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.08em;
+  }
+  .topbar .title .accent { color: var(--reveal); }
+  .topbar .sub {
+    color: var(--chalk-faint);
+    letter-spacing: 0.15em;
+    font-size: 12px;
+  }
+  .conn {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+  }
+  .conn.ok { color: #6dca8b; }
+  .conn.err { color: var(--strike); }
+
+  .back-btn {
+    background: transparent;
+    color: var(--chalk-dim);
+    border: 1px solid var(--line-strong);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  .back-btn:hover { color: var(--chalk); border-color: var(--reveal); }
+
+  /* ── 방 목록 화면 ── */
+  #list-screen {
+    padding: 24px;
+  }
+  .list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .list-stat {
+    display: flex;
+    gap: 24px;
+    color: var(--chalk-dim);
+    font-size: 14px;
+    letter-spacing: 0.05em;
+  }
+  .list-stat strong {
+    color: var(--reveal);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+  }
+  .refresh-btn {
+    background: transparent;
+    color: var(--chalk-dim);
+    border: 1px solid var(--line-strong);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .refresh-btn:hover { border-color: var(--reveal); color: var(--chalk); }
+
+  .room-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+  }
+
+  .room-empty {
+    grid-column: 1 / -1;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--chalk-faint);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .room-card {
+    background: rgba(0,0,0,0.25);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.15s, background 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .room-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--reveal);
+    background: rgba(232,196,104,0.06);
+  }
+  .room-card.playing { border-color: var(--strike-deep); }
+  .room-card.playing:hover { border-color: var(--strike); }
+
+  .rc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .rc-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    letter-spacing: 0.15em;
+    color: var(--reveal);
+    font-weight: 700;
+  }
+  .rc-phase {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.35);
+    color: var(--chalk-faint);
+    text-transform: uppercase;
+  }
+  .rc-phase.ready { color: var(--ball); border: 1px solid var(--ball-deep); }
+  .rc-phase.countdown { color: var(--reveal); border: 1px solid var(--reveal-deep); }
+  .rc-phase.playing { color: var(--strike); border: 1px solid var(--strike-deep); animation: pulse 1.5s ease-in-out infinite; }
+  .rc-phase.waiting { color: var(--chalk-faint); border: 1px solid var(--line); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .rc-players {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .rc-player {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 4px 0;
+  }
+  .rc-player.disc { opacity: 0.4; }
+  .rc-player-name {
+    color: var(--chalk);
+  }
+  .rc-player-tag {
+    color: var(--chalk-faint);
+    font-size: 11px;
+  }
+  .rc-player-tag.ready { color: #6dca8b; }
+  .rc-player-tag.host { color: var(--reveal); }
+  .rc-player.empty {
+    color: var(--chalk-faint);
+    font-style: italic;
+    opacity: 0.6;
+  }
+
+  .rc-score-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .rc-score-a, .rc-score-b {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .rc-score-a { color: var(--strike); }
+  .rc-score-b { color: var(--ball); }
+  .rc-score-vs {
+    color: var(--chalk-faint);
+    font-size: 12px;
+  }
+  .rc-timer {
+    color: var(--chalk-dim);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  .rc-watch {
+    text-align: center;
+    padding: 6px;
+    background: rgba(232,196,104,0.1);
+    border-radius: 6px;
+    color: var(--reveal);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+  }
+
+  /* ── 관전 화면 ── */
+  #spectate-screen {
+    display: none;
+    min-height: 100vh;
+    flex-direction: column;
+  }
+  #spectate-screen.show { display: flex; }
+
+  .spec-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: rgba(0,0,0,0.4);
+    border-bottom: 1px solid var(--line);
+  }
+  .spec-topbar .left { display: flex; align-items: center; gap: 14px; }
+  .spec-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.08em;
+  }
+  .spec-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    letter-spacing: 0.18em;
+    color: var(--reveal);
+  }
+  .spec-phase-tag {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.35);
+    color: var(--chalk-faint);
+    text-transform: uppercase;
+  }
+
+  /* 양분할 - 메인 게임의 vs-screen 스타일 모방하되 단순화 */
+  .spec-split {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 16px;
+  }
+  .spec-side {
+    background: rgba(0,0,0,0.25);
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .spec-side.A { border-color: var(--strike-deep); }
+  .spec-side.B { border-color: var(--ball-deep); }
+
+  .spec-side-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .spec-side-name {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .spec-side.A .spec-side-name { color: var(--strike); }
+  .spec-side.B .spec-side-name { color: var(--ball); }
+  .spec-side-meta {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    color: var(--chalk-dim);
+    font-size: 13px;
+  }
+  .spec-lvl {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.06em;
+    color: var(--reveal);
+  }
+  .spec-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--chalk);
+  }
+  .spec-timer.urgent { color: var(--strike); animation: pulse 0.8s ease-in-out infinite; }
+  .spec-timer.ended { color: var(--chalk-faint); opacity: 0.5; }
+
+  .spec-score-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .spec-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+  }
+  .spec-side.A .spec-score { color: var(--strike); }
+  .spec-side.B .spec-score { color: var(--ball); }
+  .spec-streak {
+    color: var(--chalk-faint);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
+
+  /* 입력판 (현재 입력 중) */
+  .spec-cells {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    padding: 14px 4px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    flex-wrap: wrap;
+  }
+  .spec-cell {
+    width: 48px;
+    height: 56px;
+    background: rgba(245,241,232,0.06);
+    border: 1.5px solid var(--line-strong);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--chalk);
+  }
+  .spec-cell.active {
+    border-color: var(--reveal);
+    box-shadow: 0 0 0 2px rgba(232,196,104,0.3);
+  }
+  .spec-cell.locked {
+    background: rgba(217,83,59,0.15);
+    border-color: var(--strike-deep);
+  }
+  .spec-cell.op { color: var(--ball); }
+
+  .spec-history-title {
+    text-align: center;
+    color: var(--chalk-faint);
+    letter-spacing: 0.2em;
+    font-size: 11px;
+    padding: 8px 0 4px;
+  }
+  .spec-history {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+    max-height: 320px;
+  }
+  .hrow {
+    display: flex;
+    gap: 3px;
+    justify-content: center;
+  }
+  .hcell {
+    width: 26px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .hcell.strike { background: var(--strike); color: white; }
+  .hcell.ball { background: var(--ball); color: white; }
+  .hcell.out { background: rgba(245,241,232,0.1); color: var(--chalk-faint); }
+
+  /* 매치 없을 때 / 종료 시 */
+  .spec-no-match {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    color: var(--chalk-faint);
+    font-size: 18px;
+    padding: 60px 20px;
+    text-align: center;
+  }
+  .spec-no-match .icon { font-size: 60px; opacity: 0.5; }
+
+  .spec-end-banner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    border: 2px solid var(--reveal);
+    border-radius: 16px;
+    padding: 32px 48px;
+    text-align: center;
+    z-index: 100;
+    display: none;
+  }
+  .spec-end-banner.show { display: block; }
+  .spec-end-banner .title { font-size: 32px; color: var(--reveal); margin-bottom: 12px; }
+  .spec-end-banner .scores { font-family: 'JetBrains Mono', monospace; font-size: 22px; margin-bottom: 16px; }
+  .spec-end-banner .winner { color: var(--reveal); font-weight: 700; }
+  .spec-end-banner button {
+    background: var(--reveal);
+    color: #111;
+    border: 0;
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  /* 카운트다운 오버레이 */
+  .countdown-spec {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    pointer-events: none;
+  }
+  .countdown-spec.show { display: flex; }
+  .countdown-spec .num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 200px;
+    color: var(--reveal);
+    text-shadow: 0 0 30px rgba(232,196,104,0.7);
+    animation: cd-pop 0.4s ease-out;
+  }
+  @keyframes cd-pop {
+    from { transform: scale(0.3); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+</style>
+</head>
+<body>
+<script src="/socket.io/socket.io.js"></script>
+
+<!-- 상단바 (양 화면 공통) -->
+<div class="topbar" id="main-topbar">
+  <div>
+    <div class="title">수<span class="accent">널</span>판 <span style="font-size:14px;letter-spacing:0.2em;color:var(--chalk-faint);margin-left:8px;">MASTER</span></div>
+    <div class="sub">전체 방 모니터링 + 관전</div>
+  </div>
+  <div class="conn" id="conn-status">연결 중...</div>
+</div>
+
+<!-- 방 목록 화면 -->
+<div id="list-screen">
+  <div class="list-header">
+    <div class="list-stat">
+      <div>방 수: <strong id="stat-rooms">0</strong></div>
+      <div>대전 중: <strong id="stat-playing">0</strong></div>
+    </div>
+    <button class="refresh-btn" onclick="requestRefresh()">↻ 새로고침</button>
+  </div>
+  <div class="room-grid" id="room-grid">
+    <div class="room-empty">방이 아직 없어요. 누군가 방을 만들 때까지 기다려주세요...</div>
+  </div>
+</div>
+
+<!-- 관전 화면 -->
+<div id="spectate-screen">
+  <div class="spec-topbar">
+    <div class="left">
+      <button class="back-btn" onclick="leaveSpectate()">← 목록</button>
+      <div class="spec-title">관전 중</div>
+      <div class="spec-code" id="spec-code">----</div>
+      <div class="spec-phase-tag" id="spec-phase">--</div>
+    </div>
+    <div class="conn" id="conn-status-spec"></div>
+  </div>
+
+  <!-- 매치 진행 중 양분할 -->
+  <div class="spec-split" id="spec-split">
+    <div class="spec-side A">
+      <div class="spec-side-header">
+        <div class="spec-side-name" id="spec-A-name">🔴 1팀</div>
+        <div class="spec-side-meta">
+          <span class="spec-lvl" id="spec-A-lvl">LV.1</span>
+          <span class="spec-timer" id="spec-A-timer">2:00</span>
+        </div>
+      </div>
+      <div class="spec-score-row">
+        <div class="spec-score" id="spec-A-score">0</div>
+        <div class="spec-streak"><span id="spec-A-streak">0</span>/3 연승</div>
+      </div>
+      <div class="spec-cells" id="spec-A-cells"></div>
+      <div class="spec-history-title">— 히스토리 —</div>
+      <div class="spec-history" id="spec-A-history"></div>
+    </div>
+    <div class="spec-side B">
+      <div class="spec-side-header">
+        <div class="spec-side-name" id="spec-B-name">🔵 2팀</div>
+        <div class="spec-side-meta">
+          <span class="spec-lvl" id="spec-B-lvl">LV.1</span>
+          <span class="spec-timer" id="spec-B-timer">2:00</span>
+        </div>
+      </div>
+      <div class="spec-score-row">
+        <div class="spec-score" id="spec-B-score">0</div>
+        <div class="spec-streak"><span id="spec-B-streak">0</span>/3 연승</div>
+      </div>
+      <div class="spec-cells" id="spec-B-cells"></div>
+      <div class="spec-history-title">— 히스토리 —</div>
+      <div class="spec-history" id="spec-B-history"></div>
+    </div>
+  </div>
+
+  <!-- 매치 없을 때 -->
+  <div class="spec-no-match" id="spec-no-match" style="display:none;">
+    <div class="icon">⏳</div>
+    <div>이 방은 아직 대기 중이에요.</div>
+    <div style="font-size:14px;">매치가 시작되면 자동으로 표시됩니다.</div>
+  </div>
+</div>
+
+<!-- 카운트다운 오버레이 -->
+<div class="countdown-spec" id="countdown-spec">
+  <div class="num" id="countdown-num">3</div>
+</div>
+
+<!-- 매치 종료 배너 -->
+<div class="spec-end-banner" id="end-banner">
+  <div class="title" id="end-title">매치 종료</div>
+  <div class="scores" id="end-scores"></div>
+  <button onclick="hideEndBanner()">닫기</button>
+</div>
+
+<script>
+const DISP = { '+': '+', '-': '−', '*': '×', '/': '÷', '=': '=' };
+const OPS = ['+','-','*','/','='];
+function disp(c) { return DISP[c] !== undefined ? DISP[c] : c; }
+function isOp(c) { return OPS.includes(c); }
+function fmtTime(sec) {
+  if (sec == null) return '--:--';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+let socket = null;
+let state = {
+  rooms: [],
+  spectating: null, // code (관전 중인 방 코드)
+  spectateData: null,
+};
+
+function init() {
+  const status = document.getElementById('conn-status');
+  socket = io({ transports: ['polling','websocket'], reconnection: true });
+  socket.on('connect', () => {
+    status.textContent = '✓ 연결됨';
+    status.className = 'conn ok';
+    socket.emit('master:hello');
+  });
+  socket.on('disconnect', () => {
+    status.textContent = '✗ 연결 끊김';
+    status.className = 'conn err';
+  });
+  socket.on('connect_error', (e) => {
+    status.textContent = '✗ 연결 오류: ' + e.message;
+    status.className = 'conn err';
+  });
+
+  socket.on('master:list', (payload) => {
+    state.rooms = payload.rooms;
+    if (!state.spectating) {
+      renderRoomList();
+    }
+  });
+
+  socket.on('master:error', ({ reason }) => {
+    alert(reason);
+  });
+
+  socket.on('spectate_start', (payload) => {
+    state.spectating = payload.code;
+    state.spectateData = payload;
+    showSpectateScreen();
+    renderSpectate();
+  });
+
+  socket.on('spectate_state', (payload) => {
+    if (!state.spectating) return;
+    state.spectateData = payload;
+    renderSpectate();
+  });
+
+  socket.on('spectate_live_input', ({ side, current, activeIdx, lockedCells }) => {
+    if (!state.spectateData) return;
+    const target = side === 'A' ? state.spectateData.a : state.spectateData.b;
+    if (!target) return;
+    target.current = current;
+    target.activeIdx = activeIdx;
+    target.lockedCells = lockedCells;
+    renderSpectate();
+  });
+
+  socket.on('match_tick', ({ aRemainSec, bRemainSec, aEnded, bEnded }) => {
+    if (!state.spectateData || !state.spectateData.a) return;
+    state.spectateData.a.remainSec = aRemainSec;
+    state.spectateData.b.remainSec = bRemainSec;
+    state.spectateData.a.ended = aEnded;
+    state.spectateData.b.ended = bEnded;
+    renderSpectate();
+  });
+
+  socket.on('countdown', ({ label }) => {
+    if (!state.spectating) return;
+    if (label === null) {
+      document.getElementById('countdown-spec').classList.remove('show');
+    } else {
+      const ov = document.getElementById('countdown-spec');
+      const num = document.getElementById('countdown-num');
+      num.textContent = label;
+      num.style.animation = 'none';
+      void num.offsetWidth;
+      num.style.animation = '';
+      ov.classList.add('show');
+    }
+  });
+
+  socket.on('match_end', (payload) => {
+    if (!state.spectating) return;
+    showEndBanner(payload);
+  });
+
+  socket.on('match_cancelled', ({ msg }) => {
+    if (!state.spectating) return;
+    alert('매치 취소: ' + (msg || ''));
+  });
+
+  socket.on('spectate_room_closed', ({ code, reason }) => {
+    if (state.spectating === code) {
+      alert('방이 종료되었어요: ' + (reason || ''));
+      leaveSpectate();
+    }
+  });
+}
+
+function requestRefresh() {
+  if (socket && socket.connected) socket.emit('master:refresh');
+}
+
+function renderRoomList() {
+  const grid = document.getElementById('room-grid');
+  const rooms = state.rooms || [];
+  document.getElementById('stat-rooms').textContent = rooms.length;
+  document.getElementById('stat-playing').textContent = rooms.filter(r => r.inMatch).length;
+
+  if (rooms.length === 0) {
+    grid.innerHTML = '<div class="room-empty">방이 아직 없어요. 누군가 방을 만들 때까지 기다려주세요...</div>';
+    return;
+  }
+
+  grid.innerHTML = '';
+  for (const r of rooms) {
+    const card = document.createElement('div');
+    card.className = 'room-card' + (r.inMatch ? ' playing' : '');
+    card.onclick = () => startSpectate(r.code);
+
+    let phaseLabel, phaseClass;
+    if (r.inMatch) {
+      if (r.matchPhase === 'ready') { phaseLabel = '준비 중'; phaseClass = 'ready'; }
+      else if (r.matchPhase === 'countdown') { phaseLabel = '카운트다운'; phaseClass = 'countdown'; }
+      else if (r.matchPhase === 'playing') { phaseLabel = '대전 중'; phaseClass = 'playing'; }
+      else { phaseLabel = '종료됨'; phaseClass = 'waiting'; }
+    } else {
+      phaseLabel = '대기 중'; phaseClass = 'waiting';
+    }
+
+    // 플레이어 행
+    let playersHtml = '';
+    const slots = r.maxPlayers || 2;
+    for (let i = 0; i < slots; i++) {
+      const p = r.players[i];
+      if (!p) {
+        playersHtml += '<div class="rc-player empty"><span>비어 있음</span></div>';
+      } else {
+        const tag = p.disconnected ? '⚠ 연결 끊김' : (p.isHost ? '👑 방장' : (p.ready ? '✓ 준비' : '대기'));
+        const tagCls = p.isHost ? 'host' : (p.ready ? 'ready' : '');
+        playersHtml += `<div class="rc-player${p.disconnected ? ' disc' : ''}">
+          <span class="rc-player-name">${escapeHtml(p.name)}</span>
+          <span class="rc-player-tag ${tagCls}">${tag}</span>
+        </div>`;
+      }
+    }
+
+    // 점수 라인 (매치 중일 때만)
+    let scoreLine = '';
+    if (r.inMatch && r.aScore !== null) {
+      scoreLine = `<div class="rc-score-line">
+        <span class="rc-score-a">${r.aScore}</span>
+        <span class="rc-score-vs">vs · ⏱ ${fmtTime(r.aRemainSec)} / ${fmtTime(r.bRemainSec)}</span>
+        <span class="rc-score-b">${r.bScore}</span>
+      </div>`;
+    }
+
+    card.innerHTML = `
+      <div class="rc-header">
+        <div class="rc-code">${r.code}</div>
+        <div class="rc-phase ${phaseClass}">${phaseLabel}</div>
+      </div>
+      <div class="rc-players">${playersHtml}</div>
+      ${scoreLine}
+      <div class="rc-watch">👀 클릭해서 관전</div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function startSpectate(code) {
+  socket.emit('master:spectate', { code });
+}
+
+function leaveSpectate() {
+  if (state.spectating) {
+    socket.emit('master:leave_spectate');
+  }
+  state.spectating = null;
+  state.spectateData = null;
+  document.getElementById('spectate-screen').classList.remove('show');
+  document.getElementById('list-screen').style.display = 'block';
+  document.getElementById('main-topbar').style.display = 'flex';
+  document.getElementById('end-banner').classList.remove('show');
+  document.getElementById('countdown-spec').classList.remove('show');
+  renderRoomList();
+}
+
+function showSpectateScreen() {
+  document.getElementById('list-screen').style.display = 'none';
+  document.getElementById('main-topbar').style.display = 'none';
+  document.getElementById('spectate-screen').classList.add('show');
+  document.getElementById('end-banner').classList.remove('show');
+}
+
+function renderSpectate() {
+  const d = state.spectateData;
+  if (!d) return;
+  document.getElementById('spec-code').textContent = d.code;
+
+  // 매치 없는 방
+  if (d.noMatch) {
+    document.getElementById('spec-split').style.display = 'none';
+    document.getElementById('spec-no-match').style.display = 'flex';
+    document.getElementById('spec-phase').textContent = '대기 중';
+    return;
+  }
+
+  document.getElementById('spec-split').style.display = 'grid';
+  document.getElementById('spec-no-match').style.display = 'none';
+
+  // phase 표시
+  let phaseLabel;
+  if (d.phase === 'ready') phaseLabel = '준비 중';
+  else if (d.phase === 'countdown') phaseLabel = '카운트다운';
+  else if (d.phase === 'playing') phaseLabel = '대전 중';
+  else if (d.phase === 'ended') phaseLabel = '종료';
+  else phaseLabel = d.phase || '--';
+  document.getElementById('spec-phase').textContent = phaseLabel;
+
+  // 양쪽 렌더링
+  renderSide('A', d.a, d.aName);
+  renderSide('B', d.b, d.bName);
+}
+
+const LEVELS_LABEL = { 0: 'LV.1', 1: 'LV.2', 2: 'LV.3', 3: 'LV.4' };
+
+function renderSide(side, p, name) {
+  if (!p) return;
+  document.getElementById(`spec-${side}-name`).textContent = (side === 'A' ? '🔴 ' : '🔵 ') + name;
+  document.getElementById(`spec-${side}-lvl`).textContent = LEVELS_LABEL[p.level] || ('LV.' + (p.level + 1));
+  document.getElementById(`spec-${side}-score`).textContent = p.totalScore;
+  document.getElementById(`spec-${side}-streak`).textContent = p.streak;
+  const t = document.getElementById(`spec-${side}-timer`);
+  t.textContent = fmtTime(p.remainSec);
+  t.classList.toggle('urgent', p.remainSec <= 10 && !p.ended);
+  t.classList.toggle('ended', !!p.ended);
+
+  // 입력판
+  const cellsEl = document.getElementById(`spec-${side}-cells`);
+  cellsEl.innerHTML = '';
+  const cur = p.current || [];
+  for (let i = 0; i < cur.length; i++) {
+    const cell = document.createElement('div');
+    let cls = 'spec-cell';
+    if (isOp(cur[i])) cls += ' op';
+    if (i === p.activeIdx && !p.ended && !p.won && p.lockedCells && !p.lockedCells[i]) cls += ' active';
+    if (p.lockedCells && p.lockedCells[i]) cls += ' locked';
+    cell.className = cls;
+    cell.textContent = cur[i] === '' ? '' : disp(cur[i]);
+    cellsEl.appendChild(cell);
+  }
+
+  // 히스토리
+  const hist = document.getElementById(`spec-${side}-history`);
+  hist.innerHTML = '';
+  const log = p.historyLog || [];
+  for (const entry of log) {
+    const row = document.createElement('div');
+    row.className = 'hrow';
+    for (let i = 0; i < entry.guess.length; i++) {
+      const c = document.createElement('div');
+      c.className = 'hcell';
+      const h = entry.hints[i];
+      if (h === 'strike') c.classList.add('strike');
+      else if (h === 'ball') c.classList.add('ball');
+      else c.classList.add('out');
+      c.textContent = disp(entry.guess[i]);
+      row.appendChild(c);
+    }
+    hist.appendChild(row);
+  }
+}
+
+function showEndBanner(payload) {
+  const banner = document.getElementById('end-banner');
+  let titleText, scoresHtml;
+  if (payload.forfeit) {
+    titleText = '경기 중단';
+    scoresHtml = `<span class="winner">${escapeHtml(payload.winner === 'A' ? payload.aName : payload.bName)} 자동 승리</span><br>(상대가 나감)`;
+  } else if (!payload.winner) {
+    titleText = '🤝 무승부';
+    scoresHtml = `${escapeHtml(payload.aName)} ${payload.aScore} : ${payload.bScore} ${escapeHtml(payload.bName)}`;
+  } else {
+    const winName = payload.winner === 'A' ? payload.aName : payload.bName;
+    titleText = '🏁 매치 종료';
+    scoresHtml = `<span class="winner">🏆 ${escapeHtml(winName)} 승리!</span><br>${escapeHtml(payload.aName)} ${payload.aScore} : ${payload.bScore} ${escapeHtml(payload.bName)}`;
+  }
+  document.getElementById('end-title').textContent = titleText;
+  document.getElementById('end-scores').innerHTML = scoresHtml;
+  banner.classList.add('show');
+}
+
+function hideEndBanner() {
+  document.getElementById('end-banner').classList.remove('show');
+}
+
+// 시작
+init();
+</script>
+</body>
+</html>

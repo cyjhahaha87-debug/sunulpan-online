@@ -42,7 +42,44 @@ VS 게임 (LV1·2분·0점부터 새 게임)
    - 누구든 방 나가기 누르면 그 사람만 메뉴로, 나머지는 방 유지
 ```
 
-## 매치 생명주기 (Phase)
+## 마스터(관전자) 모드 ✨ NEW
+
+전체 방 목록을 실시간으로 보고, 원하는 방을 클릭해 관전할 수 있는 별도 페이지.
+
+### 접근
+```
+http://<서버주소>/master
+```
+
+### 기능
+- **방 목록 실시간 푸시** — 누가 방 만들면 자동으로 카드 추가, 매치 시작/점수/타이머도 2초마다 갱신
+- **카드 클릭 → 관전 시작** — 매치 진행 중이면 양쪽 입력판/점수/타이머/히스토리 실시간 미러링
+- **매치 전이라도 관전 가능** — "대기 중" 표시
+- **완전 투명** — 관전자가 방에 들어와도 player 측에는 전혀 표시 안 됨 (`room:state.players`에 미포함)
+- **정답 미노출** — 서버가 관전자에게 `secret` 필드를 절대 보내지 않음 (DevTools로 봐도 알 수 없음)
+
+### 보안 메모
+- 현재 버전은 누구나 `/master` 접근 가능. 운영용으로는 reverse proxy에서 IP 화이트리스트나 basic auth 권장.
+- 추후 토큰 기반 인증으로 보호하려면 `master:hello`에 토큰 페이로드 추가하면 됨.
+
+### 추가된 소켓 이벤트 (master)
+
+| 방향 | 이벤트 | 설명 |
+|---|---|---|
+| C→S | `master:hello` | 마스터로 등록 + 즉시 방 목록 받기 |
+| C→S | `master:refresh` | 방 목록 강제 새로고침 |
+| C→S | `master:spectate` | 특정 방 관전 시작 (`{ code }`) |
+| C→S | `master:leave_spectate` | 관전 종료, 목록으로 복귀 |
+| S→C | `master:list` | 모든 방 + 매치 상태 목록 (2초마다 자동 + 변경 시) |
+| S→C | `master:error` | 마스터용 에러 |
+| S→C | `spectate_start` | 관전 시작 페이로드 (양쪽 publicOpp + phase, secret 제외) |
+| S→C | `spectate_state` | 매치 상태 변경 시 양쪽 미러 |
+| S→C | `spectate_live_input` | 양쪽 입력 실시간 (`{ side, current, activeIdx, lockedCells }`) |
+| S→C | `spectate_room_closed` | 관전 중인 방이 사라질 때 |
+
+또한 매치 중에는 `countdown`, `match_tick`, `match_end`, `match_cancelled` 가 관전자에게도 동일하게 흘러감 (`match_end`엔 `spectator: true` 플래그).
+
+
 
 | Phase | 설명 | 키패드 | 타이머 |
 |---|---|---|---|
@@ -124,12 +161,13 @@ npm start
 
 ```
 sunulpan-online/
-├── server.js          # 서버 (게임 로직 + 방 관리 + 매치)
+├── server.js          # 서버 (게임 로직 + 방 관리 + 매치 + 관전 채널)
 ├── package.json
 ├── render.yaml        # Render 배포 설정
 ├── README.md
 └── public/
-    └── index.html     # 클라이언트 (싱글+로컬대전+온라인 통합)
+    ├── index.html     # 클라이언트 (싱글+로컬대전+온라인 통합)
+    └── master.html    # 마스터 관전 클라이언트 (/master 경로)
 ```
 
 ## 향후 확장 (4인 모드)

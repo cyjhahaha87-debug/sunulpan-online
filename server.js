@@ -1,14 +1,17 @@
 // ════════════════════════════════════════════════════════════════
-//  수널판 온라인 서버 (server.js)
+//  수널판 온라인 서버 (server.js) - v2.0 방코드 기반
 //  - Express + Socket.IO
 //  - 권한 있는 게임 로직 (정답·검증·힌트·타이머 모두 서버)
-//  - 1반/2반/3반 슬롯 기반 로비 + 도전 매칭 + 관전 미러링
+//  - 방 코드 기반 매칭: 방 만들기/참여 (2인 우선, 추후 4인 확장 여지)
 // ════════════════════════════════════════════════════════════════
 
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const crypto = require('crypto');
 const { Server } = require('socket.io');
+
+const SERVER_VERSION = 'v2.0.0-room';
 
 const app = express();
 const server = http.createServer(app);
@@ -19,10 +22,14 @@ const io = new Server(server, {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/health', (_req, res) => res.send('ok'));
+app.get('/health', (_req, res) => res.json({
+  ok: true,
+  version: SERVER_VERSION,
+  rooms: Object.keys(rooms).length,
+}));
 
 // ═══════════════════════════════════════════════
-//  게임 로직 (클라이언트에서 옮겨온 것)
+//  게임 로직 (기존 그대로)
 // ═══════════════════════════════════════════════
 
 const OPS = ['+', '-', '*', '/'];
@@ -171,25 +178,35 @@ function calcScore(tries, lv) {
 }
 
 // ═══════════════════════════════════════════════
-//  로비/세션 상태
-//  - slots: 1반/2반/3반 = 'class1','class2','class3'
-//  - 각 슬롯 상태: 'empty' | 'waiting' | 'in_match' | 'spectating'
+//  방 시스템
+//  rooms: { [code]: Room }
+//  Room: { code, players[], match?, createdAt, lastActivity }
+//  Player: { playerId, socketId, name, isHost, ready, side?, disconnected, ... }
+//
+//  side는 매치 시작 시 'A','B' 할당. 2인 우선.
 // ═══════════════════════════════════════════════
 
-const CLASS_IDS = ['class1', 'class2', 'class3'];
-const CLASS_NAMES = { class1: '1반', class2: '2반', class3: '3반' };
+const rooms = {};
+const socketToRoom = new Map(); // socketId -> { code, playerId }
 
-const slots = {
-  class1: { socketId: null, state: 'empty', practiceLevel: 0, matchId: null },
-  class2: { socketId: null, state: 'empty', practiceLevel: 0, matchId: null },
-  class3: { socketId: null, state: 'empty', practiceLevel: 0, matchId: null },
-};
+const MAX_PLAYERS = 2; // 우선 2인. 추후 4인 확장 시 여기 + 매치 클래스만 손보면 됨.
+const ROOM_TTL_MS = 30 * 60 * 1000;
+const DISCONNECT_GRACE_MS = 30 * 1000;
 
-// 진행 중인 매치들. matchId -> Match
-const matches = new Map();
+function genCode() {
+  const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let s;
+  do {
+    s = '';
+    for (let i = 0; i < 4; i++) s += pool[Math.floor(Math.random() * pool.length)];
+  } while (rooms[s]);
+  return s;
+}
 
-// socketId -> classId 빠른 조회
-const socketToClass = new Map();
+function genPlayerId() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return crypto.randomBytes(16).toString('hex');
+}
 
 function newPlayerState(level) {
   return {
@@ -209,46 +226,83 @@ function newPlayerState(level) {
   };
 }
 
+function snapshotRoom(room) {
+  return {
+    code: room.code,
+    players: room.players.map(p => ({
+      playerId: p.playerId,
+      name: p.name,
+      isHost: p.isHost,
+      ready: p.ready,
+      side: p.side || null,
+      disconnected: !!p.disconnected,
+    })),
+    inMatch: !!(room.match && !room.match.ended),
+    matchPhase: room.match ? room.match.phase : null,
+  };
+}
+
+function broadcastRoom(room) {
+  io.to(room.code).emit('room:state', snapshotRoom(room));
+  room.lastActivity = Date.now();
+}
+
+function findPlayerInRoom(room, playerId) {
+  return room.players.find(p => p.playerId === playerId);
+}
+
+function relabelPlayers(room) {
+  // 방장 = "1팀 (방장)", 나머지 = "2팀", "3팀" ...
+  let idx = 0;
+  room.players.forEach(p => {
+    if (p.isHost) {
+      p.name = '1팀 (방장)';
+    } else {
+      idx++;
+      p.name = `${idx + 1}팀`;
+    }
+  });
+}
+
 class Match {
-  constructor(classA, classB) {
+  constructor(room) {
     this.id = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    this.room = room;
+    // 2인 매치: 방장이 A, 다른 한 명이 B
+    const players = room.players.filter(p => !p.disconnected);
+    const hostPlayer = players.find(p => p.isHost);
+    const otherPlayer = players.find(p => !p.isHost);
+    if (!hostPlayer || !otherPlayer) throw new Error('Need 2 players to start match');
+
+    hostPlayer.side = 'A';
+    otherPlayer.side = 'B';
+
     this.sides = {
-      A: { classId: classA, socketId: slots[classA].socketId, state: newPlayerState(0), ready: false },
-      B: { classId: classB, socketId: slots[classB].socketId, state: newPlayerState(0), ready: false },
+      A: { playerId: hostPlayer.playerId, socketId: hostPlayer.socketId, state: newPlayerState(0), ready: false },
+      B: { playerId: otherPlayer.playerId, socketId: otherPlayer.socketId, state: newPlayerState(0), ready: false },
     };
-    this.spectators = new Set(); // socketId
     this.timerId = null;
     this.ended = false;
-    this.endResolved = false; // 결과 후 양쪽 처리(관전/나가기) 모두 받았는지
-
-    // 매치 phase: 'ready' | 'countdown' | 'playing' | 'ended'
     this.phase = 'ready';
-    this.readyTimeoutId = null;   // 30초 타임아웃
+    this.readyTimeoutId = null;
     this.countdownIntervalId = null;
   }
 
   otherSide(side) { return side === 'A' ? 'B' : 'A'; }
 
-  socketSide(socketId) {
-    if (this.sides.A.socketId === socketId) return 'A';
-    if (this.sides.B.socketId === socketId) return 'B';
+  playerIdToSide(playerId) {
+    if (this.sides.A.playerId === playerId) return 'A';
+    if (this.sides.B.playerId === playerId) return 'B';
     return null;
   }
 
-  // 본인 시점 페이로드 (자기 secret은 안 보냄)
-  selfPayload(side) {
-    const me = this.sides[side].state;
-    const op = this.sides[this.otherSide(side)].state;
-    return {
-      side,
-      myClass: CLASS_NAMES[this.sides[side].classId],
-      opClass: CLASS_NAMES[this.sides[this.otherSide(side)].classId],
-      mine: this.publicSelf(me),
-      opp: this.publicOpp(op),
-      phase: this.phase,
-      myReady: this.sides[side].ready,
-      oppReady: this.sides[this.otherSide(side)].ready,
-    };
+  // 현재 socketId 갱신 (재접속 등)
+  refreshSocketIds() {
+    ['A','B'].forEach(s => {
+      const pid = this.sides[s].playerId;
+      const p = findPlayerInRoom(this.room, pid);
+      if (p) this.sides[s].socketId = p.socketId;
+    });
   }
 
   publicSelf(p) {
@@ -270,11 +324,10 @@ class Match {
   }
 
   publicOpp(p) {
-    // 상대방 정보 - secret 제외, 입력 진행 상태는 포함
     return {
       level: p.level,
       slots: LEVELS[p.level].slots,
-      current: p.current, // 실시간 입력 미러링
+      current: p.current,
       activeIdx: p.activeIdx,
       lockedCells: p.lockedCells,
       historyLog: p.historyLog,
@@ -287,91 +340,75 @@ class Match {
     };
   }
 
-  // 관전자용 - 양쪽 모두 publicOpp 수준 (정답 모름)
-  spectatorPayload() {
+  selfPayload(side) {
+    const me = this.sides[side].state;
+    const op = this.sides[this.otherSide(side)].state;
+    const myP = findPlayerInRoom(this.room, this.sides[side].playerId);
+    const opP = findPlayerInRoom(this.room, this.sides[this.otherSide(side)].playerId);
     return {
-      aClass: CLASS_NAMES[this.sides.A.classId],
-      bClass: CLASS_NAMES[this.sides.B.classId],
-      a: this.publicOpp(this.sides.A.state),
-      b: this.publicOpp(this.sides.B.state),
+      side,
+      myName: myP ? myP.name : '나',
+      opName: opP ? opP.name : '상대',
+      mine: this.publicSelf(me),
+      opp: this.publicOpp(op),
       phase: this.phase,
-      aReady: this.sides.A.ready,
-      bReady: this.sides.B.ready,
+      myReady: this.sides[side].ready,
+      oppReady: this.sides[this.otherSide(side)].ready,
     };
   }
 
-  // 양쪽 + 모든 관전자에게 상태 푸시
   broadcastState() {
+    this.refreshSocketIds();
     const aSocket = this.sides.A.socketId;
     const bSocket = this.sides.B.socketId;
     if (aSocket) io.to(aSocket).emit('match_state', this.selfPayload('A'));
     if (bSocket) io.to(bSocket).emit('match_state', this.selfPayload('B'));
-    const specPayload = this.spectatorPayload();
-    for (const sid of this.spectators) {
-      io.to(sid).emit('spectate_state', specPayload);
-    }
   }
 
-  // 가벼운 라이브 입력 알림 (전체 state 보내지 않고 입력만)
   broadcastLiveInput(side) {
+    this.refreshSocketIds();
     const p = this.sides[side].state;
     const liveData = {
-      side, // 'A' or 'B'
+      side,
       current: p.current,
       activeIdx: p.activeIdx,
       lockedCells: p.lockedCells,
     };
-    // 상대방에게: opp 입력으로
     const otherSocket = this.sides[this.otherSide(side)].socketId;
     if (otherSocket) io.to(otherSocket).emit('opp_live_input', liveData);
-    // 관전자에게
-    for (const sid of this.spectators) {
-      io.to(sid).emit('spectate_live_input', liveData);
-    }
   }
 
-  // ── Ready phase: 양쪽 다 준비완료 누를 때까지 30초 대기 ──
   startReadyPhase() {
     this.phase = 'ready';
-    // 30초 타임아웃
     this.readyTimeoutId = setTimeout(() => {
-      if (this.phase === 'ready') {
-        // 자동 취소
-        this.cancelDueToReady();
-      }
+      if (this.phase === 'ready') this.cancelDueToReady();
     }, 30000);
     this.broadcastState();
   }
 
-  // 사용자 준비완료 토글 (한번 누르면 ready, 다시 누르면 해제)
-  setReady(socketId, ready) {
+  setReady(playerId, ready) {
     if (this.phase !== 'ready' || this.ended) return;
-    const side = this.socketSide(socketId);
+    const side = this.playerIdToSide(playerId);
     if (!side) return;
     this.sides[side].ready = !!ready;
     this.broadcastState();
-    // 양쪽 다 준비됐으면 카운트다운 시작
-    if (this.sides.A.ready && this.sides.B.ready) {
-      this.startCountdown();
-    }
+    if (this.sides.A.ready && this.sides.B.ready) this.startCountdown();
   }
 
-  // ── Countdown phase: 3·2·1·GO! (4초) ──
   startCountdown() {
     if (this.phase !== 'ready') return;
     this.phase = 'countdown';
     if (this.readyTimeoutId) { clearTimeout(this.readyTimeoutId); this.readyTimeoutId = null; }
 
     const send = (label) => {
+      this.refreshSocketIds();
       const aSocket = this.sides.A.socketId;
       const bSocket = this.sides.B.socketId;
       const payload = { label };
       if (aSocket) io.to(aSocket).emit('countdown', payload);
       if (bSocket) io.to(bSocket).emit('countdown', payload);
-      for (const sid of this.spectators) io.to(sid).emit('countdown', payload);
     };
 
-    // 즉시 phase 변경 알림
     this.broadcastState();
 
     let n = 3;
@@ -385,14 +422,13 @@ class Match {
         clearInterval(this.countdownIntervalId);
         this.countdownIntervalId = null;
         this.phase = 'playing';
-        send(null); // 카운트다운 종료 신호
+        send(null);
         this.broadcastState();
         this.startTimer();
       }
     }, 1000);
   }
 
-  // ── 준비 단계 타임아웃으로 매치 자동 취소 ──
   cancelDueToReady() {
     if (this.ended) return;
     this.ended = true;
@@ -400,15 +436,15 @@ class Match {
     if (this.readyTimeoutId) { clearTimeout(this.readyTimeoutId); this.readyTimeoutId = null; }
     if (this.countdownIntervalId) { clearInterval(this.countdownIntervalId); this.countdownIntervalId = null; }
 
-    const aSocket = this.sides.A.socketId;
-    const bSocket = this.sides.B.socketId;
+    this.refreshSocketIds();
     const payload = {
       reason: 'ready_timeout',
       msg: '30초 안에 양쪽이 준비되지 않아 매치가 취소되었어요.'
     };
+    const aSocket = this.sides.A.socketId;
+    const bSocket = this.sides.B.socketId;
     if (aSocket) io.to(aSocket).emit('match_cancelled', payload);
     if (bSocket) io.to(bSocket).emit('match_cancelled', payload);
-    for (const sid of this.spectators) io.to(sid).emit('match_cancelled', payload);
   }
 
   startTimer() {
@@ -423,7 +459,7 @@ class Match {
         if (p.remainSec <= 0) { p.remainSec = 0; p.ended = true; }
         else allEnded = false;
       });
-      // 매초마다 가벼운 tick 알림
+      this.refreshSocketIds();
       const tickPayload = {
         aRemainSec: this.sides.A.state.remainSec,
         bRemainSec: this.sides.B.state.remainSec,
@@ -434,13 +470,12 @@ class Match {
       const bSocket = this.sides.B.socketId;
       if (aSocket) io.to(aSocket).emit('match_tick', tickPayload);
       if (bSocket) io.to(bSocket).emit('match_tick', tickPayload);
-      for (const sid of this.spectators) io.to(sid).emit('match_tick', tickPayload);
       if (allEnded) this.finish();
     }, 1000);
   }
 
-  handleSubmit(socketId, tokens) {
-    const side = this.socketSide(socketId);
+  handleSubmit(playerId, tokens) {
+    const side = this.playerIdToSide(playerId);
     if (!side) return;
     if (this.phase !== 'playing') return;
     const p = this.sides[side].state;
@@ -448,10 +483,11 @@ class Match {
 
     const v = validate(tokens);
     if (!v.ok) {
-      io.to(socketId).emit('submit_error', { msg: v.msg });
+      this.refreshSocketIds();
+      const sock = this.sides[side].socketId;
+      if (sock) io.to(sock).emit('submit_error', { msg: v.msg });
       return;
     }
-    // current를 받은 tokens로 동기화 (서버가 권한 있는 사본으로)
     p.current = tokens.slice();
 
     const hints = getHints(p.current, p.secret);
@@ -485,21 +521,20 @@ class Match {
         levelUp = true;
       }
     } else {
-      // 락 안된 칸은 비우기 (클라 동작과 동일)
       p.current = p.secret.map((v, i) => p.lockedCells[i] ? v : '');
       let firstUnlocked = p.lockedCells.findIndex(l => !l);
       if (firstUnlocked < 0) firstUnlocked = 0;
       p.activeIdx = firstUnlocked;
     }
 
-    // 본인에게 결과 알림
-    io.to(socketId).emit('submit_result', {
+    this.refreshSocketIds();
+    const sock = this.sides[side].socketId;
+    if (sock) io.to(sock).emit('submit_result', {
       hints, isWin, earned, levelUp,
       newLevel: p.level,
       remainSec: p.remainSec,
     });
 
-    // 정답이면 잠시 후 새 문제
     if (isWin) {
       setTimeout(() => {
         if (this.ended || p.ended) return;
@@ -512,7 +547,6 @@ class Match {
         p.tryCount = 0;
         p.lockedCells = Array(newSlots).fill(false);
         p.tokenStatus = {};
-        // historyLog는 유지? -> 클라이언트와 동일하게 새 문제마다 리셋
         p.historyLog = [];
         this.broadcastState();
       }, 1100);
@@ -521,8 +555,8 @@ class Match {
     this.broadcastState();
   }
 
-  handlePress(socketId, value) {
-    const side = this.socketSide(socketId);
+  handlePress(playerId, value) {
+    const side = this.playerIdToSide(playerId);
     if (!side) return;
     if (this.phase !== 'playing') return;
     const p = this.sides[side].state;
@@ -530,20 +564,19 @@ class Match {
     if (p.activeIdx < 0 || p.activeIdx >= p.current.length) return;
     if (p.lockedCells[p.activeIdx]) return;
     p.current[p.activeIdx] = value;
-    // 다음 unlocked로 이동
     let i = p.activeIdx + 1;
     while (i < p.current.length && p.lockedCells[i]) i++;
     if (i < p.current.length) p.activeIdx = i;
-    // 가벼운 라이브 입력 브로드캐스트
     this.broadcastLiveInput(side);
-    // 본인에게도 갱신 (자기 입력 확인용 - 가벼움)
-    io.to(socketId).emit('self_live_input', {
+    this.refreshSocketIds();
+    const sock = this.sides[side].socketId;
+    if (sock) io.to(sock).emit('self_live_input', {
       current: p.current, activeIdx: p.activeIdx, lockedCells: p.lockedCells,
     });
   }
 
-  handleDel(socketId) {
-    const side = this.socketSide(socketId);
+  handleDel(playerId) {
+    const side = this.playerIdToSide(playerId);
     if (!side) return;
     if (this.phase !== 'playing') return;
     const p = this.sides[side].state;
@@ -561,7 +594,9 @@ class Match {
       if (i >= 0) { p.activeIdx = i; p.current[p.activeIdx] = ''; }
     }
     this.broadcastLiveInput(side);
-    io.to(socketId).emit('self_live_input', {
+    this.refreshSocketIds();
+    const sock = this.sides[side].socketId;
+    if (sock) io.to(sock).emit('self_live_input', {
       current: p.current, activeIdx: p.activeIdx, lockedCells: p.lockedCells,
     });
   }
@@ -580,330 +615,398 @@ class Match {
     if (aScore > bScore) winner = 'A';
     else if (bScore > aScore) winner = 'B';
 
+    const aP = findPlayerInRoom(this.room, this.sides.A.playerId);
+    const bP = findPlayerInRoom(this.room, this.sides.B.playerId);
     const result = {
       aScore, bScore, winner,
-      aClass: CLASS_NAMES[this.sides.A.classId],
-      bClass: CLASS_NAMES[this.sides.B.classId],
+      aName: aP ? aP.name : '플레이어1',
+      bName: bP ? bP.name : '플레이어2',
     };
 
+    this.refreshSocketIds();
     const aSocket = this.sides.A.socketId;
     const bSocket = this.sides.B.socketId;
     if (aSocket) io.to(aSocket).emit('match_end', { ...result, mySide: 'A' });
     if (bSocket) io.to(bSocket).emit('match_end', { ...result, mySide: 'B' });
-    for (const sid of this.spectators) io.to(sid).emit('match_end', { ...result, spectator: true });
   }
 
-  removePlayer(socketId) {
-    // 한쪽 연결 끊김 → 매치 강제 종료
+  // 한 쪽 플레이어가 방을 떠나면 매치 즉시 종료 (상대 자동 승)
+  forfeit(playerId) {
     if (this.ended) return;
-    const side = this.socketSide(socketId);
+    const side = this.playerIdToSide(playerId);
     if (!side) return;
-    this.sides[side].socketId = null;
-    // 상대 자동 승
     const other = this.otherSide(side);
-    const otherSocket = this.sides[other].socketId;
     this.ended = true;
     this.phase = 'ended';
     if (this.timerId) { clearInterval(this.timerId); this.timerId = null; }
     if (this.readyTimeoutId) { clearTimeout(this.readyTimeoutId); this.readyTimeoutId = null; }
     if (this.countdownIntervalId) { clearInterval(this.countdownIntervalId); this.countdownIntervalId = null; }
+
+    this.refreshSocketIds();
+    const otherSocket = this.sides[other].socketId;
+    const aP = findPlayerInRoom(this.room, this.sides.A.playerId);
+    const bP = findPlayerInRoom(this.room, this.sides.B.playerId);
     if (otherSocket) io.to(otherSocket).emit('match_end', {
       aScore: this.sides.A.state.totalScore,
       bScore: this.sides.B.state.totalScore,
       winner: other,
-      aClass: CLASS_NAMES[this.sides.A.classId],
-      bClass: CLASS_NAMES[this.sides.B.classId],
+      aName: aP ? aP.name : '플레이어1',
+      bName: bP ? bP.name : '플레이어2',
       mySide: other,
-      forfeit: true,
-    });
-    for (const sid of this.spectators) io.to(sid).emit('match_end', {
-      aScore: this.sides.A.state.totalScore,
-      bScore: this.sides.B.state.totalScore,
-      winner: other,
-      aClass: CLASS_NAMES[this.sides.A.classId],
-      bClass: CLASS_NAMES[this.sides.B.classId],
-      spectator: true,
       forfeit: true,
     });
   }
 }
 
 // ═══════════════════════════════════════════════
-//  로비 헬퍼
+//  방 헬퍼
 // ═══════════════════════════════════════════════
 
-function lobbyView() {
-  return CLASS_IDS.map(cid => ({
-    classId: cid,
-    name: CLASS_NAMES[cid],
-    state: slots[cid].state,
-    matchId: slots[cid].matchId,
-    practiceLevel: slots[cid].practiceLevel,
-  }));
+function destroyRoom(room, reason) {
+  if (room.match) {
+    if (room.match.timerId) clearInterval(room.match.timerId);
+    if (room.match.readyTimeoutId) clearTimeout(room.match.readyTimeoutId);
+    if (room.match.countdownIntervalId) clearInterval(room.match.countdownIntervalId);
+  }
+  room.players.forEach(p => {
+    if (p.leaveTimer) clearTimeout(p.leaveTimer);
+  });
+  io.to(room.code).emit('room:closed', { reason });
+  io.in(room.code).socketsLeave(room.code);
+  delete rooms[room.code];
 }
 
-function broadcastLobby() {
-  io.emit('lobby_update', lobbyView());
-}
-
-function freeSlot(classId) {
-  slots[classId].socketId = null;
-  slots[classId].state = 'empty';
-  slots[classId].matchId = null;
-  slots[classId].practiceLevel = 0;
+// 매치 후 방 재사용을 위해 매치 상태 리셋 (방은 유지)
+function resetMatchInRoom(room) {
+  if (room.match) {
+    if (room.match.timerId) clearInterval(room.match.timerId);
+    if (room.match.readyTimeoutId) clearTimeout(room.match.readyTimeoutId);
+    if (room.match.countdownIntervalId) clearInterval(room.match.countdownIntervalId);
+  }
+  room.match = null;
+  room.players.forEach(p => {
+    p.ready = p.isHost; // 방장은 자동 ready
+    p.side = null;
+  });
 }
 
 // ═══════════════════════════════════════════════
-//  소켓 이벤트
+//  소켓 핸들러
 // ═══════════════════════════════════════════════
 
 io.on('connection', (socket) => {
   console.log('[+]', socket.id);
 
-  // 현재 로비 즉시 송신
-  socket.emit('lobby_update', lobbyView());
-
-  // ── 로비 강제 새로고침 (클라이언트가 반 선택 화면 진입할 때 등) ──
-  socket.on('refresh_lobby', () => {
-    socket.emit('lobby_update', lobbyView());
+  // ── 방 만들기 ──
+  socket.on('room:create', () => {
+    const code = genCode();
+    const playerId = genPlayerId();
+    const room = {
+      code,
+      players: [{
+        playerId,
+        socketId: socket.id,
+        name: '1팀 (방장)',
+        isHost: true,
+        ready: true, // 방장은 항상 ready 기본
+        side: null,
+        disconnected: false,
+        disconnectedAt: 0,
+        leaveTimer: null,
+      }],
+      match: null,
+      createdAt: Date.now(),
+      lastActivity: Date.now(),
+    };
+    rooms[code] = room;
+    socket.join(code);
+    socketToRoom.set(socket.id, { code, playerId });
+    socket.emit('room:joined', {
+      code, myId: playerId, isHost: true,
+    });
+    broadcastRoom(room);
+    console.log(`[ROOM-CREATE] code=${code} host=${playerId.slice(0,6)}`);
   });
 
-  // ── 반 입장 (대기 시작) ──
-  // payload: { classId: 'class1' | 'class2' | 'class3', practiceLevel: 0..3 }
-  socket.on('enter_class', ({ classId, practiceLevel }) => {
-    if (!CLASS_IDS.includes(classId)) {
-      socket.emit('error_msg', { msg: '잘못된 반 선택' });
+  // ── 방 참여 ──
+  socket.on('room:join', ({ code }) => {
+    code = (code || '').toUpperCase().trim();
+    const room = rooms[code];
+    if (!room) {
+      socket.emit('room:error', { reason: '방을 찾을 수 없어요. 코드를 확인해주세요.' });
       return;
     }
-    if (slots[classId].state !== 'empty') {
-      socket.emit('error_msg', { msg: `${CLASS_NAMES[classId]}은 이미 사용 중이에요.` });
+    const activeCount = room.players.filter(p => !p.disconnected).length;
+    if (activeCount >= MAX_PLAYERS) {
+      socket.emit('room:error', { reason: '방이 가득 찼어요.' });
       return;
     }
-    if (typeof practiceLevel !== 'number' || practiceLevel < 0 || practiceLevel > 3) {
-      practiceLevel = 0;
+    if (room.match && !room.match.ended) {
+      socket.emit('room:error', { reason: '이미 경기가 진행 중인 방이에요.' });
+      return;
     }
-    slots[classId].socketId = socket.id;
-    slots[classId].state = 'waiting';
-    slots[classId].practiceLevel = practiceLevel;
-    slots[classId].matchId = null;
-    socketToClass.set(socket.id, classId);
-    socket.emit('entered_class', {
-      classId,
-      name: CLASS_NAMES[classId],
-      practiceLevel,
+
+    const playerId = genPlayerId();
+    const newPlayer = {
+      playerId,
+      socketId: socket.id,
+      name: '2팀',
+      isHost: false,
+      ready: false,
+      side: null,
+      disconnected: false,
+      disconnectedAt: 0,
+      leaveTimer: null,
+    };
+    room.players.push(newPlayer);
+    relabelPlayers(room);
+    socket.join(code);
+    socketToRoom.set(socket.id, { code, playerId });
+    socket.emit('room:joined', {
+      code, myId: playerId, isHost: false,
     });
-    broadcastLobby();
+    broadcastRoom(room);
+    console.log(`[ROOM-JOIN] code=${code} player=${playerId.slice(0,6)}`);
   });
 
-  // ── 도전! (waiting 상태인 다른 반에게) ──
-  // payload: { targetClassId }
-  // 결정: 즉시 매칭 시작 (수락 단계 없음)
-  socket.on('challenge', ({ targetClassId }) => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return socket.emit('error_msg', { msg: '먼저 반에 입장하세요.' });
-    if (!CLASS_IDS.includes(targetClassId)) return;
-    if (myClass === targetClassId) return socket.emit('error_msg', { msg: '자기 반에는 도전 못 해요.' });
-    if (slots[myClass].state !== 'waiting') return socket.emit('error_msg', { msg: '연습 대기 중일 때만 도전 가능' });
-    if (slots[targetClassId].state !== 'waiting') return socket.emit('error_msg', { msg: '상대 반이 대기 중이 아니에요.' });
-
-    // 매치 생성 (도전한 쪽 = A, 받은 쪽 = B)
-    const m = new Match(myClass, targetClassId);
-    matches.set(m.id, m);
-    slots[myClass].state = 'in_match';
-    slots[myClass].matchId = m.id;
-    slots[targetClassId].state = 'in_match';
-    slots[targetClassId].matchId = m.id;
-
-    // 양쪽에 매치 시작 알림
-    const aSock = slots[myClass].socketId;
-    const bSock = slots[targetClassId].socketId;
-    if (aSock) io.to(aSock).emit('match_start', m.selfPayload('A'));
-    if (bSock) io.to(bSock).emit('match_start', m.selfPayload('B'));
-
-    m.broadcastState();
-    m.startReadyPhase();
-    broadcastLobby();
-  });
-
-  // ── 준비완료 토글 ──
-  socket.on('set_ready', ({ ready }) => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return;
-    const matchId = slots[myClass].matchId;
-    if (!matchId) return;
-    const m = matches.get(matchId);
-    if (!m) return;
-    m.setReady(socket.id, ready);
-  });
-
-  // ── 관전 진입 ──
-  // payload: { matchId }
-  socket.on('spectate', ({ matchId }) => {
-    const m = matches.get(matchId);
-    if (!m || m.ended) return socket.emit('error_msg', { msg: '진행 중인 경기가 아니에요.' });
-    // 본인이 어떤 반인지 - 관전 중인 동안은 슬롯 state를 spectating으로
-    const myClass = socketToClass.get(socket.id);
-    if (myClass) {
-      slots[myClass].state = 'spectating';
-      slots[myClass].matchId = matchId;
-      broadcastLobby();
+  // ── 재접속 ──
+  socket.on('room:rejoin', ({ code, playerId }) => {
+    code = (code || '').toUpperCase().trim();
+    const room = rooms[code];
+    if (!room) {
+      socket.emit('room:error', { reason: '방이 더 이상 존재하지 않아요.' });
+      return;
     }
-    m.spectators.add(socket.id);
-    socket.emit('spectate_start', {
-      matchId,
-      ...m.spectatorPayload(),
+    const me = findPlayerInRoom(room, playerId);
+    if (!me) {
+      socket.emit('room:error', { reason: '이 방에 본인 자리가 없어요.' });
+      return;
+    }
+    if (me.leaveTimer) { clearTimeout(me.leaveTimer); me.leaveTimer = null; }
+    me.disconnected = false;
+    me.disconnectedAt = 0;
+    me.socketId = socket.id;
+    socket.join(code);
+    socketToRoom.set(socket.id, { code, playerId });
+    socket.emit('room:joined', {
+      code, myId: playerId, isHost: me.isHost, rejoined: true,
     });
+    broadcastRoom(room);
+    if (room.match && !room.match.ended) {
+      room.match.refreshSocketIds();
+      const side = room.match.playerIdToSide(playerId);
+      if (side) socket.emit('match_state', room.match.selfPayload(side));
+    }
+    console.log(`[ROOM-REJOIN] code=${code} player=${playerId.slice(0,6)}`);
   });
 
-  // ── 관전 종료 (자발적) ──
-  socket.on('leave_spectate', () => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return;
-    const matchId = slots[myClass].matchId;
-    if (matchId) {
-      const m = matches.get(matchId);
-      if (m) m.spectators.delete(socket.id);
+  // ── 준비 토글 (방장 아닌 사람만 / 매치 시작 전) ──
+  socket.on('room:setReady', ({ ready }) => {
+    const ref = socketToRoom.get(socket.id);
+    if (!ref) return;
+    const room = rooms[ref.code];
+    if (!room) return;
+    if (room.match && !room.match.ended) return;
+    const me = findPlayerInRoom(room, ref.playerId);
+    if (!me || me.isHost) return;
+    me.ready = !!ready;
+    broadcastRoom(room);
+  });
+
+  // ── 매치 시작 (방장만) ──
+  socket.on('room:start', () => {
+    const ref = socketToRoom.get(socket.id);
+    if (!ref) return;
+    const room = rooms[ref.code];
+    if (!room) return;
+    const me = findPlayerInRoom(room, ref.playerId);
+    if (!me || !me.isHost) {
+      socket.emit('room:error', { reason: '방장만 시작할 수 있어요.' });
+      return;
     }
-    slots[myClass].state = 'waiting';
-    slots[myClass].matchId = null;
-    socket.emit('back_to_waiting', {
-      classId: myClass,
-      name: CLASS_NAMES[myClass],
-      practiceLevel: slots[myClass].practiceLevel,
-    });
-    broadcastLobby();
+    const activePlayers = room.players.filter(p => !p.disconnected);
+    if (activePlayers.length < 2) {
+      socket.emit('room:error', { reason: '2명이 모여야 시작할 수 있어요.' });
+      return;
+    }
+    if (!activePlayers.filter(p => !p.isHost).every(p => p.ready)) {
+      socket.emit('room:error', { reason: '상대가 아직 준비되지 않았어요.' });
+      return;
+    }
+    if (room.match && !room.match.ended) return;
+
+    try {
+      room.match = new Match(room);
+    } catch (e) {
+      socket.emit('room:error', { reason: '매치 생성 실패: ' + e.message });
+      return;
+    }
+    broadcastRoom(room);
+
+    // 시작 알림 (양쪽에 selfPayload 전송)
+    const aSock = room.match.sides.A.socketId;
+    const bSock = room.match.sides.B.socketId;
+    if (aSock) io.to(aSock).emit('match_start', room.match.selfPayload('A'));
+    if (bSock) io.to(bSock).emit('match_start', room.match.selfPayload('B'));
+
+    room.match.startReadyPhase();
+    console.log(`[MATCH-START] code=${room.code}`);
+  });
+
+  // ── 매치 안 준비완료 토글 ──
+  socket.on('match:setReady', ({ ready }) => {
+    const ref = socketToRoom.get(socket.id);
+    if (!ref) return;
+    const room = rooms[ref.code];
+    if (!room || !room.match) return;
+    room.match.setReady(ref.playerId, ready);
   });
 
   // ── 매치 입력 ──
   socket.on('match_press', ({ value }) => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return;
-    const matchId = slots[myClass].matchId;
-    if (!matchId) return;
-    const m = matches.get(matchId);
-    if (!m) return;
-    m.handlePress(socket.id, value);
+    const ref = socketToRoom.get(socket.id);
+    if (!ref) return;
+    const room = rooms[ref.code];
+    if (!room || !room.match) return;
+    room.match.handlePress(ref.playerId, value);
+    room.lastActivity = Date.now();
   });
 
   socket.on('match_del', () => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return;
-    const matchId = slots[myClass].matchId;
-    if (!matchId) return;
-    const m = matches.get(matchId);
-    if (!m) return;
-    m.handleDel(socket.id);
+    const ref = socketToRoom.get(socket.id);
+    if (!ref) return;
+    const room = rooms[ref.code];
+    if (!room || !room.match) return;
+    room.match.handleDel(ref.playerId);
+    room.lastActivity = Date.now();
   });
 
   socket.on('match_submit', ({ tokens }) => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return;
-    const matchId = slots[myClass].matchId;
-    if (!matchId) return;
-    const m = matches.get(matchId);
-    if (!m) return;
-    m.handleSubmit(socket.id, tokens);
+    const ref = socketToRoom.get(socket.id);
+    if (!ref) return;
+    const room = rooms[ref.code];
+    if (!room || !room.match) return;
+    room.match.handleSubmit(ref.playerId, tokens);
+    room.lastActivity = Date.now();
   });
 
-  // ── 매치 종료 후 처리 ──
-  // payload: { action: 'wait' | 'spectate' | 'leave' }
-  //   wait     - 대기 화면 복귀 (승자가 다음 도전 기다림)
-  //   spectate - (당장 관전할 매치는 없음, leave랑 같이 처리: 그냥 대기로 복귀)
-  //              실제 다른 매치가 진행 중이면 그쪽 관전 입장은 별도 spectate 이벤트
-  //   leave    - 메인 메뉴로 (반에서 나감)
+  // ── 매치 후 처리: action = 'rematch' | 'leave' ──
   socket.on('post_match', ({ action }) => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return;
-    const matchId = slots[myClass].matchId;
-    const m = matchId ? matches.get(matchId) : null;
-
-    // 매치에서 본인 socketId 정리
-    if (m) {
-      // 관전자 목록에서도 빼기 (안전)
-      m.spectators.delete(socket.id);
-    }
+    const ref = socketToRoom.get(socket.id);
+    if (!ref) return;
+    const room = rooms[ref.code];
+    if (!room) return;
+    const me = findPlayerInRoom(room, ref.playerId);
+    if (!me) return;
 
     if (action === 'leave') {
-      // 슬롯 비우기
-      freeSlot(myClass);
-      socketToClass.delete(socket.id);
-      socket.emit('back_to_menu');
-      broadcastLobby();
-    } else {
-      // 'wait' 또는 'spectate'(=후처리) 모두 일단 대기 화면 복귀
-      slots[myClass].state = 'waiting';
-      slots[myClass].matchId = null;
-      // practiceLevel은 유지
-      socket.emit('back_to_waiting', {
-        classId: myClass,
-        name: CLASS_NAMES[myClass],
-        practiceLevel: slots[myClass].practiceLevel,
-      });
-      broadcastLobby();
+      handleLeave(socket, 'explicit-leave');
+      return;
     }
-
-    // 양쪽 모두 처리 완료 + 매치 종료된 상태면 매치 정리
-    if (m && m.ended) {
-      const aGone = !m.sides.A.socketId || !slots[m.sides.A.classId] || slots[m.sides.A.classId].matchId !== m.id;
-      const bGone = !m.sides.B.socketId || !slots[m.sides.B.classId] || slots[m.sides.B.classId].matchId !== m.id;
-      const noSpec = m.spectators.size === 0;
-      if (aGone && bGone && noSpec) {
-        matches.delete(m.id);
+    // rematch: 매치만 리셋하고 방은 유지. 방장이 다시 시작 누르면 됨.
+    if (action === 'rematch') {
+      if (me.isHost) {
+        // 방장이 누른 경우에만 매치 리셋 (양쪽 동시에 누르면 race 가능하지만 idempotent)
+        resetMatchInRoom(room);
+        broadcastRoom(room);
+        io.to(room.code).emit('rematch_ready');
+      } else {
+        // 방장 아닌 사람: 일단 클라이언트가 방 대기 화면으로 돌아가도록 알림
+        socket.emit('return_to_room');
       }
     }
   });
 
-  // ── 연습 레벨 변경 (대기 중일 때) ──
-  socket.on('set_practice_level', ({ level }) => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return;
-    if (slots[myClass].state !== 'waiting') return;
-    if (typeof level === 'number' && level >= 0 && level <= 3) {
-      slots[myClass].practiceLevel = level;
-      broadcastLobby();
-    }
+  // ── 명시적 나가기 ──
+  socket.on('room:leave', () => {
+    handleLeave(socket, 'explicit-leave');
   });
 
-  // ── 메뉴로 나가기 (대기 중에서) ──
-  socket.on('exit_class', () => {
-    const myClass = socketToClass.get(socket.id);
-    if (!myClass) return;
-    // 매치 중이면 forfeit 처리
-    if (slots[myClass].state === 'in_match') {
-      const m = matches.get(slots[myClass].matchId);
-      if (m) m.removePlayer(socket.id);
-    }
-    if (slots[myClass].state === 'spectating') {
-      const m = matches.get(slots[myClass].matchId);
-      if (m) m.spectators.delete(socket.id);
-    }
-    freeSlot(myClass);
-    socketToClass.delete(socket.id);
-    socket.emit('back_to_menu');
-    broadcastLobby();
-  });
-
-  // ── 연결 끊김 ──
+  // ── 끊김 ──
   socket.on('disconnect', () => {
     console.log('[-]', socket.id);
-    const myClass = socketToClass.get(socket.id);
-    if (myClass) {
-      if (slots[myClass].state === 'in_match') {
-        const m = matches.get(slots[myClass].matchId);
-        if (m) m.removePlayer(socket.id);
-      }
-      if (slots[myClass].state === 'spectating') {
-        const m = matches.get(slots[myClass].matchId);
-        if (m) m.spectators.delete(socket.id);
-      }
-      freeSlot(myClass);
-      socketToClass.delete(socket.id);
-      broadcastLobby();
-    }
+    handleLeave(socket, 'disconnect');
   });
 });
 
+// ═══════════════════════════════════════════════
+//  나가기 처리 (grace period 포함)
+// ═══════════════════════════════════════════════
+
+function handleLeave(socket, cause) {
+  const ref = socketToRoom.get(socket.id);
+  if (!ref) return;
+  socketToRoom.delete(socket.id);
+  const room = rooms[ref.code];
+  if (!room) return;
+  const me = findPlayerInRoom(room, ref.playerId);
+  if (!me) return;
+  if (me.socketId !== socket.id) return; // 이미 다른 소켓으로 재접속됨
+
+  const isExplicit = cause === 'explicit-leave';
+  if (isExplicit) {
+    finalizeLeave(room, me, cause);
+    return;
+  }
+
+  // disconnect → grace period
+  me.disconnected = true;
+  me.disconnectedAt = Date.now();
+  broadcastRoom(room);
+  if (me.leaveTimer) clearTimeout(me.leaveTimer);
+  me.leaveTimer = setTimeout(() => {
+    if (me.disconnected) finalizeLeave(room, me, 'grace-expired');
+  }, DISCONNECT_GRACE_MS);
+}
+
+function finalizeLeave(room, me, cause) {
+  if (me.leaveTimer) { clearTimeout(me.leaveTimer); me.leaveTimer = null; }
+  const inMatch = !!(room.match && !room.match.ended);
+
+  if (inMatch) {
+    // 매치 진행중에 나가면 forfeit
+    room.match.forfeit(me.playerId);
+  }
+
+  const wasHost = me.isHost;
+  room.players = room.players.filter(p => p.playerId !== me.playerId);
+
+  if (room.players.length === 0) {
+    destroyRoom(room, '방에 아무도 없어요');
+    console.log(`[ROOM-DESTROYED] code=${room.code} reason=empty`);
+    return;
+  }
+
+  // 방장이 나갔으면 권한 이양
+  if (wasHost) {
+    const newHost = room.players.find(p => !p.disconnected) || room.players[0];
+    newHost.isHost = true;
+    newHost.ready = true;
+    io.to(room.code).emit('host_changed', { playerId: newHost.playerId, name: newHost.name });
+  }
+
+  if (!room.match || room.match.ended) {
+    relabelPlayers(room);
+  }
+  broadcastRoom(room);
+  console.log(`[LEAVE] code=${room.code} player=${me.playerId.slice(0,6)} cause=${cause}`);
+}
+
+// ═══════════════════════════════════════════════
+//  방 TTL 청소
+// ═══════════════════════════════════════════════
+setInterval(() => {
+  const now = Date.now();
+  for (const code of Object.keys(rooms)) {
+    const room = rooms[code];
+    if (now - room.lastActivity > ROOM_TTL_MS) {
+      console.log(`[ROOM-DESTROYED] code=${code} reason=ttl-idle`);
+      destroyRoom(room, '비활성으로 방이 종료되었어요');
+    }
+  }
+}, 10 * 60 * 1000);
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`수널판 서버 listening on :${PORT}`);
+  console.log(`수널판 서버 ${SERVER_VERSION} listening on :${PORT}`);
 });

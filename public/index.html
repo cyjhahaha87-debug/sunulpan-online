@@ -2048,6 +2048,278 @@
     100% { transform: scale(1); opacity: 1; }
   }
 
+  /* ══════════════════════════════
+     온라인 - 방코드 진입 화면 (NEW v2)
+  ══════════════════════════════ */
+  #online-entry {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .oe-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    gap: 36px;
+  }
+  .oe-prompt {
+    font-size: 26px;
+    color: var(--chalk-dim);
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+  .oe-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    width: 100%;
+    max-width: 720px;
+  }
+  .oe-card {
+    background: rgba(0,0,0,0.25);
+    border: 2px solid var(--line-strong);
+    border-radius: 16px;
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .oe-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--reveal);
+    background: rgba(232,196,104,0.08);
+  }
+  .oe-icon {
+    font-size: 56px;
+    line-height: 1;
+  }
+  .oe-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 38px;
+    letter-spacing: 0.06em;
+    color: var(--chalk);
+  }
+  .oe-desc {
+    font-size: 14px;
+    color: var(--chalk-faint);
+    letter-spacing: 0.05em;
+  }
+  /* 방 코드 입력 모달 */
+  .code-input-wrap {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+  .code-input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    background: rgba(0,0,0,0.4);
+    color: var(--chalk);
+    border: 2px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 14px 18px;
+    width: 220px;
+    text-align: center;
+    outline: none;
+  }
+  .code-input:focus { border-color: var(--reveal); }
+  .code-input-btn {
+    background: var(--reveal);
+    color: #111;
+    border: 0;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-size: 16px;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.1s;
+    font-family: inherit;
+  }
+  .code-input-btn:hover { filter: brightness(1.1); }
+  .code-input-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ══════════════════════════════
+     온라인 - 방 대기실 (NEW v2)
+     좌: 방 정보(코드 + 플레이어 목록) / 우: 연습 영역 (기존 ow-practice 재사용)
+  ══════════════════════════════ */
+  #online-room {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .or-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+    padding: 16px 24px 32px;
+  }
+  .or-info {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .or-code-box {
+    text-align: center;
+    padding: 18px 12px;
+    background: rgba(232,196,104,0.06);
+    border: 1.5px dashed var(--reveal-deep);
+    border-radius: 10px;
+  }
+  .or-code-label {
+    color: var(--chalk-faint);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+  }
+  .or-code-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 44px;
+    letter-spacing: 0.18em;
+    color: var(--reveal);
+    font-weight: 700;
+    line-height: 1;
+    user-select: all;
+  }
+  .or-code-hint {
+    margin-top: 8px;
+    color: var(--chalk-faint);
+    font-size: 12px;
+  }
+  .or-code-copy {
+    margin-top: 8px;
+    background: transparent;
+    color: var(--chalk-dim);
+    border: 1px solid var(--line-strong);
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    letter-spacing: 0.05em;
+  }
+  .or-code-copy:hover { color: var(--chalk); border-color: var(--reveal); }
+
+  .or-players-title {
+    text-align: center;
+    color: var(--chalk-faint);
+    letter-spacing: 0.2em;
+    font-size: 13px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .or-players {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .or-player {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .or-player.host { border-color: var(--reveal-deep); }
+  .or-player.disconnected { opacity: 0.45; }
+  .or-player.me {
+    background: rgba(107,166,214,0.08);
+    border-color: var(--ball-deep);
+  }
+  .or-player-name {
+    color: var(--chalk);
+    font-size: 16px;
+  }
+  .or-player-state {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--chalk-faint);
+  }
+  .or-player-state.ready { color: #6dca8b; }
+  .or-player-state.host  { color: var(--reveal); }
+  .or-player-empty {
+    background: rgba(0,0,0,0.15);
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 18px 14px;
+    text-align: center;
+    color: var(--chalk-faint);
+    font-size: 14px;
+    letter-spacing: 0.08em;
+  }
+
+  .or-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .or-action-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 17px;
+    font-family: inherit;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    cursor: pointer;
+    border: 0;
+    transition: filter 0.1s, transform 0.1s;
+  }
+  .or-action-btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .or-action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .or-action-btn.primary { background: var(--reveal); color: #111; }
+  .or-action-btn.ready { background: #6dca8b; color: #111; }
+  .or-action-btn.ready.done { background: rgba(109,202,139,0.25); color: #6dca8b; border: 1.5px solid #6dca8b; }
+  .or-action-btn.ghost {
+    background: transparent;
+    color: var(--chalk-dim);
+    border: 1px solid var(--line-strong);
+  }
+  .or-action-btn.ghost:hover { color: var(--chalk); border-color: var(--reveal); }
+
+  .or-practice {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .or-practice-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .or-practice-title {
+    font-size: 18px;
+    color: var(--chalk);
+  }
+  .or-practice-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
 </style>
 </head>
 <body>
@@ -2494,53 +2766,70 @@
   </div>
 </div>
 
-<!-- ══════════════ 온라인 - 반 선택 화면 ══════════════ -->
-<div id="online-class-select" style="display:none;">
+<!-- ══════════════ 온라인 - 진입 화면 (방 만들기 / 참여) ══════════════ -->
+<div id="online-entry" style="display:none;">
   <div class="vs-topbar">
     <button class="back-btn" onclick="onlineBackToMenu()">← 메뉴</button>
     <div class="vs-title">🌐 <span class="accent">온라인</span> 대전</div>
     <div style="width:80px;"></div>
   </div>
-  <div class="online-class-wrap">
-    <div class="online-class-prompt">우리 반을 선택하세요</div>
-    <div class="online-class-grid">
-      <div class="online-class-card" id="online-card-class1" onclick="onlinePickClass('class1')">
-        <div class="occ-name">1반</div>
-        <div class="occ-state" id="online-state-class1">사용 가능</div>
+  <div class="oe-wrap">
+    <div class="oe-prompt">방을 만들거나, 친구의 방 코드를 입력해 참여하세요</div>
+    <div class="oe-options">
+      <div class="oe-card" onclick="onlineCreateRoom()">
+        <div class="oe-icon">🏠</div>
+        <div class="oe-name">방 만들기</div>
+        <div class="oe-desc">방 코드를 발급받아 친구를 초대</div>
       </div>
-      <div class="online-class-card" id="online-card-class2" onclick="onlinePickClass('class2')">
-        <div class="occ-name">2반</div>
-        <div class="occ-state" id="online-state-class2">사용 가능</div>
+      <div class="oe-card" onclick="showJoinCodeInput()">
+        <div class="oe-icon">🚪</div>
+        <div class="oe-name">방 참여</div>
+        <div class="oe-desc">친구가 알려준 4자리 코드 입력</div>
       </div>
-      <div class="online-class-card" id="online-card-class3" onclick="onlinePickClass('class3')">
-        <div class="occ-name">3반</div>
-        <div class="occ-state" id="online-state-class3">사용 가능</div>
-      </div>
+    </div>
+    <!-- 방 코드 입력 영역 (참여 클릭 시 표시) -->
+    <div class="code-input-wrap" id="join-code-wrap" style="display:none;">
+      <input type="text" class="code-input" id="join-code-input" maxlength="4" placeholder="ABCD" autocomplete="off"
+             oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')onlineJoinRoom()">
+      <button class="code-input-btn" id="join-code-btn" onclick="onlineJoinRoom()">참여하기</button>
     </div>
     <div class="online-conn-status" id="online-conn-status">서버 연결 중...</div>
   </div>
 </div>
 
-<!-- ══════════════ 온라인 - 대기 화면 (연습 + 로비) ══════════════ -->
-<div id="online-waiting" style="display:none;">
+<!-- ══════════════ 온라인 - 방 대기실 (방 코드 + 플레이어 + 연습) ══════════════ -->
+<div id="online-room" style="display:none;">
   <div class="vs-topbar">
-    <button class="back-btn" onclick="onlineExitClass()">← 나가기</button>
-    <div class="vs-title">🌐 <span id="ow-class-name" class="accent">1반</span> · 대기 중</div>
+    <button class="back-btn" onclick="onlineLeaveRoom()">← 방 나가기</button>
+    <div class="vs-title">🌐 <span class="accent">방 대기실</span></div>
     <div style="width:80px;"></div>
   </div>
-  <div class="ow-body">
-    <!-- 좌측: 다른 반 로비 -->
-    <div class="ow-lobby">
-      <div class="ow-lobby-title">— 다른 반 —</div>
-      <div class="ow-lobby-list" id="ow-lobby-list">
-        <!-- JS로 채움 -->
+  <div class="or-body">
+    <!-- 좌측: 방 정보 (코드 + 플레이어 + 액션) -->
+    <div class="or-info">
+      <div class="or-code-box">
+        <div class="or-code-label">방 코드</div>
+        <div class="or-code-value" id="or-code-value">----</div>
+        <button class="or-code-copy" onclick="copyRoomCode()">📋 코드 복사</button>
+        <div class="or-code-hint" id="or-code-hint">친구에게 이 코드를 알려주세요</div>
       </div>
-      <div class="ow-tip">상대 반이 대기 중일 때 [도전] 버튼이 활성화돼요.</div>
+
+      <div>
+        <div class="or-players-title">— 참가자 —</div>
+        <div class="or-players" id="or-players">
+          <!-- JS로 채움 -->
+        </div>
+      </div>
+
+      <div class="or-actions" id="or-actions">
+        <!-- JS로 채움: 방장이면 [매치 시작] / 비방장이면 [준비완료] -->
+      </div>
     </div>
-    <!-- 우측: 연습 미니 영역 -->
-    <div class="ow-practice">
-      <div class="ow-practice-header">
-        <div class="ow-practice-title">🎯 연습 중</div>
+
+    <!-- 우측: 연습 영역 (기다리는 동안) -->
+    <div class="or-practice">
+      <div class="or-practice-header">
+        <div class="or-practice-title">🎯 기다리는 동안 연습</div>
         <div class="ow-level-pick">
           <span style="opacity:0.7;">레벨</span>
           <select id="ow-level-select" onchange="onlineSetPracticeLevel()">
@@ -2551,7 +2840,7 @@
           </select>
         </div>
       </div>
-      <div class="ow-practice-body">
+      <div class="or-practice-body">
         <div class="cells" id="ow-practice-cells"></div>
         <div class="feedback" id="ow-practice-feedback"></div>
         <div class="keypad" id="ow-practice-keypad">
@@ -2579,26 +2868,25 @@
   </div>
 </div>
 
-<!-- ══════════════ 온라인 - 매칭 알림 (NEW CHALLENGER) ══════════════ -->
+<!-- ══════════════ 온라인 - 매치 시작 알림 ══════════════ -->
 <div id="online-match-banner" class="online-match-banner">
   <div class="omb-inner">
     <div class="omb-bolt">⚡</div>
     <div class="omb-text">
-      <div class="omb-title">NEW CHALLENGER!</div>
-      <div class="omb-sub" id="omb-sub">상대 반이 도전했어요</div>
+      <div class="omb-title">MATCH START!</div>
+      <div class="omb-sub" id="omb-sub">경기를 시작합니다</div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════ 온라인 - 매치 후 선택 (승자/패자 분기) ══════════════ -->
+<!-- ══════════════ 온라인 - 매치 후 선택 ══════════════ -->
 <div id="online-post-match" class="modal-bg">
   <div class="modal">
     <h3 id="opm-title">매치 종료</h3>
     <div class="opm-result" id="opm-result"></div>
     <div class="opm-btns">
-      <button class="modal-btn" id="opm-btn-spectate" onclick="onlinePostMatch('spectate')" style="display:none;">관전하기</button>
-      <button class="modal-btn primary" id="opm-btn-wait" onclick="onlinePostMatch('wait')">대기 화면으로</button>
-      <button class="modal-btn" onclick="onlinePostMatch('leave')">메뉴로</button>
+      <button class="modal-btn primary" id="opm-btn-rematch" onclick="onlinePostMatch('rematch')">🔁 다시 하기</button>
+      <button class="modal-btn" onclick="onlinePostMatch('leave')">방 나가기</button>
     </div>
   </div>
 </div>
@@ -2742,10 +3030,9 @@ function setMode(mode) {
   document.getElementById('mode-online').classList.toggle('active', mode === 'online');
 }
 
-// 온라인 모드 즉시 진입 (메뉴 → 반 선택 화면으로 바로)
+// 온라인 모드 즉시 진입 (메뉴 → 방 만들기/참여 화면으로 바로)
 function onlineQuickEnter() {
   setMode('online');
-  // 연습 시작 레벨 기본값은 0 (LV1) - 어차피 대기 화면에서 다시 고를 수 있음
   onlineEnterFlow(0);
 }
 
@@ -3693,30 +3980,24 @@ function vsFinish() {
 }
 
 function vsExit() {
-  // 온라인 모드: 서버에 슬롯 정리 요청
+  // 온라인 모드: 서버에 방 나가기 요청
   if (gameMode === 'online') {
-    if (onlineSocket && onlineSocket.connected && onlineState.classId) {
-      // 매치 중/관전 중/대기 중 어느 상태든 exit_class가 안전하게 정리해 줌
-      onlineSocket.emit('exit_class');
+    if (onlineSocket && onlineSocket.connected && onlineState.code) {
+      onlineSocket.emit('room:leave');
     }
-    // 화면 정리 (서버 응답 안 기다리고 즉시 - back_to_menu도 와서 한번 더 정리할 것)
+    // 화면 정리 (서버 응답 안 기다리고 즉시)
     document.getElementById('vs-result-overlay').classList.remove('show');
     document.getElementById('vs-A-end-overlay')?.classList.remove('show');
     document.getElementById('vs-B-end-overlay')?.classList.remove('show');
     document.getElementById('online-post-match').classList.remove('show');
     document.getElementById('ready-overlay').classList.remove('show');
     document.getElementById('countdown-overlay').classList.remove('show');
-    document.querySelector('.spectator-banner')?.classList.remove('show');
     document.getElementById('vs-screen').style.display = 'none';
-    document.getElementById('online-waiting').style.display = 'none';
-    document.getElementById('online-class-select').style.display = 'none';
+    document.getElementById('online-room').style.display = 'none';
+    document.getElementById('online-entry').style.display = 'none';
     document.getElementById('level-select').style.display = 'flex';
     // 온라인 상태 초기화
-    onlineState.classId = null;
-    onlineState.matchSide = null;
-    onlineState.matchData = null;
-    onlineState.spectating = false;
-    onlineState.spectateData = null;
+    resetOnlineState();
     return;
   }
   // 로컬 대결모드: 기존 로직
@@ -3730,7 +4011,7 @@ function vsExit() {
 
 function vsRestart() {
   if (gameMode === 'online') {
-    // 온라인은 매칭부터 다시 해야 함 → 그냥 메뉴로 (실제로 이 함수가 호출될 일은 거의 없음)
+    // 온라인은 매치 종료 후 방 대기실에서 rematch 흐름. 이 버튼은 거의 안 보이지만 안전망.
     vsExit();
     return;
   }
@@ -4028,60 +4309,67 @@ showResumeModal();
 // 우클릭/길게누르기 컨텍스트 메뉴 차단 (특히 멀티터치 동시입력 시 문제 방지)
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
+
 // ════════════════════════════════════════════════════════════════
-//  온라인 대전 모드
+//  온라인 대전 모드 - v2 (방코드 기반)
 //  - Socket.IO로 서버와 통신
 //  - 권한 있는 상태는 모두 서버에 있고, 클라는 렌더링만
+//  - 방 만들기/참여 → 방 대기실 → 매치(2인 우선) → 다시하기/나가기
 // ════════════════════════════════════════════════════════════════
 
 let onlineSocket = null;
 let onlineState = {
-  classId: null,         // 'class1' | 'class2' | 'class3'
-  className: '',
-  practiceLevel: 0,      // 대기 화면 연습용 레벨
+  // 방 정보
+  code: null,
+  myId: null,
+  isHost: false,
+  roomState: null,     // 서버에서 받은 최신 room:state (players, inMatch, ...)
   // 연습용 로컬 상태 (서버 상관 없음, 그냥 시간 떼우는 용)
+  practiceLevel: 0,
   practiceSecret: [],
   practiceCurrent: [],
   practiceActiveIdx: 0,
   practiceLocked: [],
   // 매치 상태
-  matchSide: null,       // 'A' | 'B' | null
-  matchData: null,       // 서버에서 받은 최근 selfPayload
-  // 관전 상태
-  spectating: false,
-  spectateData: null,
+  matchSide: null,     // 'A' | 'B' | null
+  matchData: null,     // 서버에서 받은 최근 selfPayload
   // 결과
   lastResult: null,
-  // 로비
-  lobby: [],
 };
 
-// ── 진입점: 메뉴에서 "온라인" 모드로 레벨 카드 클릭 시 ──
+function resetOnlineState() {
+  onlineState.code = null;
+  onlineState.myId = null;
+  onlineState.isHost = false;
+  onlineState.roomState = null;
+  onlineState.matchSide = null;
+  onlineState.matchData = null;
+  onlineState.lastResult = null;
+}
+
+// ── 진입점: 메뉴에서 "온라인" 모드 클릭 시 ──
 function onlineEnterFlow(lv) {
-  // lv는 첫 연습 레벨로 사용
   onlineState.practiceLevel = lv;
   document.getElementById('level-select').style.display = 'none';
-  document.getElementById('online-class-select').style.display = 'flex';
+  document.getElementById('online-entry').style.display = 'flex';
+  // 입력창은 처음엔 숨김
+  document.getElementById('join-code-wrap').style.display = 'none';
   ensureOnlineSocket();
-  // 이미 연결된 상태라면 lobby 강제 새로고침 (자기 반 점유 상태 등 최신화)
-  if (onlineSocket && onlineSocket.connected) {
-    onlineSocket.emit('refresh_lobby');
-  }
 }
 
 function onlineBackToMenu() {
-  document.getElementById('online-class-select').style.display = 'none';
+  document.getElementById('online-entry').style.display = 'none';
   document.getElementById('level-select').style.display = 'flex';
-  if (onlineSocket && onlineSocket.connected) {
-    // 슬롯에 들어가기 전이면 그냥 두면 됨. disconnect까지 할 필요는 없음.
-  }
+  // 방에 들어가기 전이라면 disconnect 안 함 (소켓 재사용)
 }
 
 function ensureOnlineSocket() {
   if (onlineSocket) return;
   const status = document.getElementById('online-conn-status');
-  status.textContent = '서버 연결 중...';
-  status.className = 'online-conn-status';
+  if (status) {
+    status.textContent = '서버 연결 중...';
+    status.className = 'online-conn-status';
+  }
 
   try {
     onlineSocket = io({
@@ -4089,133 +4377,129 @@ function ensureOnlineSocket() {
       reconnection: true,
     });
   } catch (e) {
-    status.textContent = '연결 실패: ' + e.message;
-    status.className = 'online-conn-status err';
+    if (status) {
+      status.textContent = '연결 실패: ' + e.message;
+      status.className = 'online-conn-status err';
+    }
     return;
   }
 
   onlineSocket.on('connect', () => {
-    status.textContent = '✓ 연결됨';
-    status.className = 'online-conn-status ok';
+    if (status) {
+      status.textContent = '✓ 연결됨';
+      status.className = 'online-conn-status ok';
+    }
   });
 
   onlineSocket.on('disconnect', () => {
-    status.textContent = '✗ 연결 끊김 - 재시도 중...';
-    status.className = 'online-conn-status err';
+    if (status) {
+      status.textContent = '✗ 연결 끊김 - 재시도 중...';
+      status.className = 'online-conn-status err';
+    }
   });
 
   onlineSocket.on('connect_error', (err) => {
-    status.textContent = '✗ 연결 오류: ' + err.message;
-    status.className = 'online-conn-status err';
+    if (status) {
+      status.textContent = '✗ 연결 오류: ' + err.message;
+      status.className = 'online-conn-status err';
+    }
   });
 
-  onlineSocket.on('error_msg', ({ msg }) => {
-    alert(msg);
+  // ── 에러 메시지 ──
+  onlineSocket.on('room:error', ({ reason }) => {
+    alert(reason || '오류가 발생했어요.');
   });
 
-  onlineSocket.on('lobby_update', (lobby) => {
-    onlineState.lobby = lobby;
-    renderClassSelect();
-    renderLobbyList();
-  });
-
-  onlineSocket.on('entered_class', ({ classId, name, practiceLevel }) => {
-    onlineState.classId = classId;
-    onlineState.className = name;
-    onlineState.practiceLevel = practiceLevel;
-    document.getElementById('online-class-select').style.display = 'none';
-    document.getElementById('online-waiting').style.display = 'flex';
-    document.getElementById('ow-class-name').textContent = name;
-    document.getElementById('ow-level-select').value = String(practiceLevel);
-    owNewProblem();
-    renderLobbyList();
-  });
-
-  onlineSocket.on('back_to_menu', () => {
-    onlineState.classId = null;
-    onlineState.matchSide = null;
-    onlineState.spectating = false;
-    document.getElementById('online-waiting').style.display = 'none';
+  onlineSocket.on('room:closed', ({ reason }) => {
+    alert(reason || '방이 종료되었어요.');
+    // 모든 온라인 화면 닫고 메뉴로
     document.getElementById('vs-screen').style.display = 'none';
+    document.getElementById('online-room').style.display = 'none';
+    document.getElementById('online-entry').style.display = 'none';
     document.getElementById('online-post-match').classList.remove('show');
-    document.getElementById('online-class-select').style.display = 'flex';
+    document.getElementById('ready-overlay').classList.remove('show');
+    document.getElementById('countdown-overlay').classList.remove('show');
+    document.getElementById('level-select').style.display = 'flex';
+    resetOnlineState();
   });
 
-  onlineSocket.on('back_to_waiting', ({ classId, name, practiceLevel }) => {
-    onlineState.classId = classId;
-    onlineState.className = name;
-    onlineState.practiceLevel = practiceLevel;
-    onlineState.matchSide = null;
-    onlineState.spectating = false;
-    document.getElementById('vs-screen').style.display = 'none';
-    document.getElementById('online-post-match').classList.remove('show');
-    document.getElementById('online-waiting').style.display = 'flex';
-    document.getElementById('ow-class-name').textContent = name;
-    document.getElementById('ow-level-select').value = String(practiceLevel);
-    document.querySelector('.spectator-banner')?.classList.remove('show');
-    // 키패드 비활성화 풀기
-    document.querySelectorAll('.vs-keypad').forEach(k => k.classList.remove('spectator-mode'));
+  // ── 방 입장 성공 ──
+  onlineSocket.on('room:joined', ({ code, myId, isHost, rejoined }) => {
+    onlineState.code = code;
+    onlineState.myId = myId;
+    onlineState.isHost = !!isHost;
+    // 화면 전환: 진입화면 → 방 대기실
+    document.getElementById('online-entry').style.display = 'none';
+    document.getElementById('online-room').style.display = 'flex';
+    document.getElementById('or-code-value').textContent = code;
+    // 연습 영역 새로 시작
     owNewProblem();
   });
 
+  // ── 방 상태 업데이트 ──
+  onlineSocket.on('room:state', (state) => {
+    onlineState.roomState = state;
+    // isHost 동기화 (방장 이양 등으로 바뀔 수 있음)
+    const me = state.players.find(p => p.playerId === onlineState.myId);
+    if (me) onlineState.isHost = !!me.isHost;
+    renderRoom();
+  });
+
+  // ── 방장 변경 ──
+  onlineSocket.on('host_changed', ({ playerId, name }) => {
+    if (playerId === onlineState.myId) {
+      alert('방장이 나가서 당신이 방장이 되었어요.');
+    }
+  });
+
+  // ── 매치 시작 ──
   onlineSocket.on('match_start', (payload) => {
     onlineState.matchSide = payload.side;
     onlineState.matchData = payload;
-    showChallengerBanner(payload.opClass);
+    showMatchStartBanner();
     setTimeout(() => {
-      hideChallengerBanner();
+      hideMatchStartBanner();
       enterMatchScreen(payload);
-      // ready 오버레이 표시
       showReadyOverlay(payload);
-    }, 1800);
+    }, 1500);
   });
 
+  // ── 매치 상태 ──
   onlineSocket.on('match_state', (payload) => {
-    const prevPhase = onlineState.matchData ? onlineState.matchData.phase : null;
     onlineState.matchData = payload;
-    // phase 변경에 따른 UI 갱신
     if (payload.phase === 'ready') {
       updateReadyOverlay(payload);
     } else if (payload.phase === 'countdown') {
       hideReadyOverlay();
-      // 카운트다운 오버레이는 countdown 이벤트로 띄움
     } else if (payload.phase === 'playing') {
       hideReadyOverlay();
       hideCountdownOverlay();
-      // 키패드 재바인딩 (활성화)
       rebindMatchKeypad(false);
     }
     renderMatchSelf(payload);
   });
 
+  // ── 카운트다운 ──
   onlineSocket.on('countdown', ({ label }) => {
-    if (label === null) {
-      hideCountdownOverlay();
-    } else {
-      showCountdown(label);
-    }
+    if (label === null) hideCountdownOverlay();
+    else showCountdown(label);
   });
 
+  // ── 매치 취소 (준비 타임아웃 등) ──
   onlineSocket.on('match_cancelled', ({ msg }) => {
     hideReadyOverlay();
     hideCountdownOverlay();
     alert(msg || '매치가 취소되었어요.');
-    // 대기 화면으로 복귀 (서버가 곧 back_to_waiting을 줄 거지만, 일단 직접 정리)
-    onlineSocket.emit('post_match', { action: 'wait' });
+    // 방 대기실로 복귀 (서버가 rematch_ready도 같이 보내면 좋지만, 일단 클라가 직접 정리)
+    document.getElementById('vs-screen').style.display = 'none';
+    document.getElementById('online-post-match').classList.remove('show');
+    document.getElementById('online-room').style.display = 'flex';
+    onlineState.matchSide = null;
+    onlineState.matchData = null;
   });
 
+  // ── 타이머 tick ──
   onlineSocket.on('match_tick', ({ aRemainSec, bRemainSec, aEnded, bEnded }) => {
-    if (onlineState.spectating) {
-      if (onlineState.spectateData) {
-        onlineState.spectateData.a.remainSec = aRemainSec;
-        onlineState.spectateData.b.remainSec = bRemainSec;
-        onlineState.spectateData.a.ended = aEnded;
-        onlineState.spectateData.b.ended = bEnded;
-        renderSpectator(onlineState.spectateData);
-      }
-      return;
-    }
-    // 플레이어 본인
     const side = onlineState.matchSide;
     if (!side || !onlineState.matchData) return;
     if (side === 'A') {
@@ -4232,6 +4516,7 @@ function ensureOnlineSocket() {
     renderMatchSelf(onlineState.matchData);
   });
 
+  // ── 본인 입력 미러링 ──
   onlineSocket.on('self_live_input', ({ current, activeIdx, lockedCells }) => {
     if (!onlineState.matchData) return;
     onlineState.matchData.mine.current = current;
@@ -4240,6 +4525,7 @@ function ensureOnlineSocket() {
     renderMatchSelf(onlineState.matchData);
   });
 
+  // ── 상대 입력 미러링 ──
   onlineSocket.on('opp_live_input', ({ current, activeIdx, lockedCells }) => {
     if (!onlineState.matchData) return;
     onlineState.matchData.opp.current = current;
@@ -4248,6 +4534,7 @@ function ensureOnlineSocket() {
     renderMatchSelf(onlineState.matchData);
   });
 
+  // ── 제출 에러 (잘못된 식 등) ──
   onlineSocket.on('submit_error', ({ msg }) => {
     if (onlineState.matchSide) {
       vsShowFb(onlineState.matchSide, msg, 'err');
@@ -4258,6 +4545,7 @@ function ensureOnlineSocket() {
     }
   });
 
+  // ── 제출 결과 ──
   onlineSocket.on('submit_result', ({ hints, isWin, earned, levelUp, newLevel, remainSec }) => {
     const side = onlineState.matchSide;
     if (!side) return;
@@ -4274,127 +4562,191 @@ function ensureOnlineSocket() {
     }
   });
 
+  // ── 매치 종료 ──
   onlineSocket.on('match_end', (payload) => {
     onlineState.lastResult = payload;
     showMatchEndOverlay(payload);
   });
 
-  onlineSocket.on('spectate_start', (payload) => {
-    onlineState.spectating = true;
-    onlineState.spectateData = payload;
-    enterSpectateScreen(payload);
-    // 관전자도 ready/countdown 단계면 표시
-    if (payload.phase === 'ready') {
-      showSpectatorReadyInfo(payload);
-    }
+  // ── 다시하기 준비 완료 (방장이 rematch 누르면) ──
+  onlineSocket.on('rematch_ready', () => {
+    // 매치 화면 닫고 방 대기실로
+    document.getElementById('vs-screen').style.display = 'none';
+    document.getElementById('online-post-match').classList.remove('show');
+    document.getElementById('online-room').style.display = 'flex';
+    onlineState.matchSide = null;
+    onlineState.matchData = null;
+    owNewProblem();
   });
 
-  onlineSocket.on('spectate_state', (payload) => {
-    const prevPhase = onlineState.spectateData ? onlineState.spectateData.phase : null;
-    onlineState.spectateData = payload;
-    if (payload.phase === 'ready') {
-      showSpectatorReadyInfo(payload);
-    } else {
-      hideSpectatorReadyInfo();
-    }
-    renderSpectator(payload);
-  });
-
-  onlineSocket.on('spectate_live_input', ({ side, current, activeIdx, lockedCells }) => {
-    if (!onlineState.spectateData) return;
-    const target = side === 'A' ? onlineState.spectateData.a : onlineState.spectateData.b;
-    target.current = current;
-    target.activeIdx = activeIdx;
-    target.lockedCells = lockedCells;
-    renderSpectator(onlineState.spectateData);
+  // ── 비방장이 rematch 누른 경우(=방 대기실로 복귀 신호) ──
+  onlineSocket.on('return_to_room', () => {
+    document.getElementById('vs-screen').style.display = 'none';
+    document.getElementById('online-post-match').classList.remove('show');
+    document.getElementById('online-room').style.display = 'flex';
+    onlineState.matchSide = null;
+    onlineState.matchData = null;
+    owNewProblem();
   });
 }
 
-// ── 반 선택 화면 렌더 ──
-function renderClassSelect() {
-  for (const slot of onlineState.lobby) {
-    const card = document.getElementById(`online-card-${slot.classId}`);
-    const stateEl = document.getElementById(`online-state-${slot.classId}`);
-    if (!card || !stateEl) continue;
-    if (slot.state === 'empty') {
-      card.classList.remove('busy');
-      stateEl.textContent = '사용 가능';
-    } else {
-      card.classList.add('busy');
-      stateEl.textContent = slot.state === 'waiting' ? '대기 중' :
-                            slot.state === 'in_match' ? '대전 중' :
-                            slot.state === 'spectating' ? '관전 중' : '사용 중';
-    }
-  }
+// ────────────────────────────────────────────────
+//  진입 화면 동작
+// ────────────────────────────────────────────────
+
+function showJoinCodeInput() {
+  const wrap = document.getElementById('join-code-wrap');
+  wrap.style.display = 'flex';
+  const input = document.getElementById('join-code-input');
+  input.value = '';
+  setTimeout(() => input.focus(), 50);
 }
 
-function onlinePickClass(classId) {
-  // 현재 비어있는지 확인
-  const slot = onlineState.lobby.find(s => s.classId === classId);
-  if (!slot || slot.state !== 'empty') {
-    alert(`이미 사용 중이에요`);
+function onlineCreateRoom() {
+  if (!onlineSocket || !onlineSocket.connected) {
+    alert('서버 연결을 기다려 주세요.');
     return;
   }
-  onlineSocket.emit('enter_class', {
-    classId,
-    practiceLevel: onlineState.practiceLevel,
-  });
+  onlineSocket.emit('room:create');
 }
 
-// ── 대기 화면: 로비 목록 ──
-function renderLobbyList() {
-  const listEl = document.getElementById('ow-lobby-list');
-  if (!listEl) return;
-  listEl.innerHTML = '';
-  for (const slot of onlineState.lobby) {
-    if (slot.classId === onlineState.classId) continue; // 본인은 제외
-    const row = document.createElement('div');
-    row.className = 'ow-lobby-row ' + slot.state;
-    let statusText, btnHtml = '';
-    if (slot.state === 'empty') {
-      statusText = '비어있음';
-    } else if (slot.state === 'waiting') {
-      statusText = '🟢 대기 중';
-      btnHtml = `<button class="ow-class-btn" onclick="onlineChallenge('${slot.classId}')">⚡ 도전!</button>`;
-    } else if (slot.state === 'in_match') {
-      statusText = '⚔️ 대전 중';
-      if (slot.matchId) {
-        btnHtml = `<button class="ow-class-btn spec" onclick="onlineSpectate('${slot.matchId}')">👀 관전</button>`;
-      }
-    } else if (slot.state === 'spectating') {
-      statusText = '👀 관전 중';
-    }
-    row.innerHTML = `
-      <span class="ow-class-label">${slot.name}</span>
-      <span class="ow-class-status">${statusText}</span>
-      ${btnHtml}
-    `;
-    listEl.appendChild(row);
+function onlineJoinRoom() {
+  const input = document.getElementById('join-code-input');
+  const code = (input.value || '').toUpperCase().trim();
+  if (!/^[A-Z0-9]{4}$/.test(code)) {
+    alert('4자리 방 코드를 입력해주세요. (예: ABCD)');
+    input.focus();
+    return;
+  }
+  if (!onlineSocket || !onlineSocket.connected) {
+    alert('서버 연결을 기다려 주세요.');
+    return;
+  }
+  onlineSocket.emit('room:join', { code });
+}
+
+// ────────────────────────────────────────────────
+//  방 대기실
+// ────────────────────────────────────────────────
+
+function copyRoomCode() {
+  const code = onlineState.code;
+  if (!code) return;
+  // navigator.clipboard 시도, 실패 시 fallback
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => {
+      const hint = document.getElementById('or-code-hint');
+      const old = hint.textContent;
+      hint.textContent = '✓ 코드가 복사되었어요!';
+      setTimeout(() => { hint.textContent = old; }, 1500);
+    }).catch(() => {
+      prompt('이 코드를 복사하세요:', code);
+    });
+  } else {
+    prompt('이 코드를 복사하세요:', code);
   }
 }
 
-function onlineChallenge(targetClassId) {
-  onlineSocket.emit('challenge', { targetClassId });
+function renderRoom() {
+  const state = onlineState.roomState;
+  if (!state) return;
+
+  // 플레이어 목록
+  const playersEl = document.getElementById('or-players');
+  playersEl.innerHTML = '';
+  const MAX = 2; // 우선 2인용
+  for (let i = 0; i < MAX; i++) {
+    const p = state.players[i];
+    if (!p) {
+      const empty = document.createElement('div');
+      empty.className = 'or-player-empty';
+      empty.textContent = '비어 있음 (대기 중)';
+      playersEl.appendChild(empty);
+      continue;
+    }
+    const row = document.createElement('div');
+    let cls = 'or-player';
+    if (p.isHost) cls += ' host';
+    if (p.disconnected) cls += ' disconnected';
+    if (p.playerId === onlineState.myId) cls += ' me';
+    row.className = cls;
+    let stateText = '';
+    let stateCls = '';
+    if (p.disconnected) {
+      stateText = '연결 끊김';
+      stateCls = '';
+    } else if (p.isHost) {
+      stateText = '👑 방장';
+      stateCls = 'host';
+    } else if (p.ready) {
+      stateText = '✓ 준비완료';
+      stateCls = 'ready';
+    } else {
+      stateText = '대기 중';
+    }
+    row.innerHTML = `
+      <span class="or-player-name">${escapeHtml(p.name)}${p.playerId === onlineState.myId ? ' (나)' : ''}</span>
+      <span class="or-player-state ${stateCls}">${stateText}</span>
+    `;
+    playersEl.appendChild(row);
+  }
+
+  // 액션 버튼: 방장이면 [매치 시작] / 비방장이면 [준비완료]
+  const actionsEl = document.getElementById('or-actions');
+  actionsEl.innerHTML = '';
+  const activePlayers = state.players.filter(p => !p.disconnected);
+  const otherReady = activePlayers.filter(p => !p.isHost).every(p => p.ready);
+  const enoughPlayers = activePlayers.length >= 2;
+
+  if (onlineState.isHost) {
+    const startBtn = document.createElement('button');
+    startBtn.className = 'or-action-btn primary';
+    startBtn.textContent = enoughPlayers
+      ? (otherReady ? '⚡ 매치 시작' : '⏳ 상대 준비 대기 중...')
+      : '⏳ 다른 참가자 기다리는 중...';
+    startBtn.disabled = !enoughPlayers || !otherReady;
+    startBtn.onclick = () => onlineSocket.emit('room:start');
+    actionsEl.appendChild(startBtn);
+  } else {
+    // 비방장: 준비완료 토글
+    const me = state.players.find(p => p.playerId === onlineState.myId);
+    const myReady = !!(me && me.ready);
+    const readyBtn = document.createElement('button');
+    readyBtn.className = 'or-action-btn ready' + (myReady ? ' done' : '');
+    readyBtn.textContent = myReady ? '✓ 준비완료' : '🟢 준비완료';
+    readyBtn.onclick = () => onlineSocket.emit('room:setReady', { ready: !myReady });
+    actionsEl.appendChild(readyBtn);
+  }
 }
 
-function onlineSpectate(matchId) {
-  onlineSocket.emit('spectate', { matchId });
+function onlineLeaveRoom() {
+  if (!confirm('방을 나가시겠어요?')) return;
+  if (onlineSocket && onlineSocket.connected) {
+    onlineSocket.emit('room:leave');
+  }
+  // 즉시 화면 정리 (서버 응답 안 기다리고)
+  document.getElementById('online-room').style.display = 'none';
+  document.getElementById('online-entry').style.display = 'flex';
+  document.getElementById('join-code-wrap').style.display = 'none';
+  resetOnlineState();
 }
 
-function onlineExitClass() {
-  if (!confirm('대기 화면을 나갈까요?')) return;
-  onlineSocket.emit('exit_class');
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
 }
+
+// ────────────────────────────────────────────────
+//  연습 영역 (방 대기 중에 시간 떼우기용)
+// ────────────────────────────────────────────────
 
 function onlineSetPracticeLevel() {
   const lv = parseInt(document.getElementById('ow-level-select').value, 10);
   onlineState.practiceLevel = lv;
-  if (onlineSocket) onlineSocket.emit('set_practice_level', { level: lv });
   owNewProblem();
 }
 
-// ── 연습 영역 (대기 화면 우측) ──
-// 서버랑 무관하게 그냥 클라에서 시간 떼우기용
 function owNewProblem() {
   const lv = onlineState.practiceLevel;
   onlineState.practiceSecret = makeSecret(lv);
@@ -4403,12 +4755,16 @@ function owNewProblem() {
   onlineState.practiceActiveIdx = 0;
   onlineState.practiceLocked = Array(len).fill(false);
   owRenderCells();
-  document.getElementById('ow-practice-feedback').textContent = '';
-  document.getElementById('ow-practice-feedback').className = 'feedback';
+  const fb = document.getElementById('ow-practice-feedback');
+  if (fb) {
+    fb.textContent = '';
+    fb.className = 'feedback';
+  }
 }
 
 function owRenderCells() {
   const wrap = document.getElementById('ow-practice-cells');
+  if (!wrap) return;
   wrap.innerHTML = '';
   const cur = onlineState.practiceCurrent;
   for (let i = 0; i < cur.length; i++) {
@@ -4422,61 +4778,64 @@ function owRenderCells() {
       onlineState.practiceActiveIdx = i;
       owRenderCells();
     };
+    if (isOp(cur[i])) cell.classList.add('op');
     wrap.appendChild(cell);
   }
 }
 
 function owPress(v) {
-  const idx = onlineState.practiceActiveIdx;
-  if (idx < 0 || idx >= onlineState.practiceCurrent.length) return;
-  if (onlineState.practiceLocked[idx]) return;
-  onlineState.practiceCurrent[idx] = v;
-  let next = idx + 1;
+  const i = onlineState.practiceActiveIdx;
+  if (i < 0 || i >= onlineState.practiceCurrent.length) return;
+  if (onlineState.practiceLocked[i]) return;
+  onlineState.practiceCurrent[i] = v;
+  // 다음 unlocked로 이동
+  let next = i + 1;
   while (next < onlineState.practiceCurrent.length && onlineState.practiceLocked[next]) next++;
   if (next < onlineState.practiceCurrent.length) onlineState.practiceActiveIdx = next;
   owRenderCells();
-  document.getElementById('ow-practice-feedback').textContent = '';
 }
 
 function owDel() {
-  const idx = onlineState.practiceActiveIdx;
-  if (idx < 0) return;
-  if (onlineState.practiceCurrent[idx] !== '') {
-    onlineState.practiceCurrent[idx] = '';
+  let i = onlineState.practiceActiveIdx;
+  if (i < 0) return;
+  if (onlineState.practiceLocked[i]) {
+    let j = i - 1;
+    while (j >= 0 && onlineState.practiceLocked[j]) j--;
+    if (j >= 0) { onlineState.practiceActiveIdx = j; onlineState.practiceCurrent[j] = ''; }
+  } else if (onlineState.practiceCurrent[i] !== '') {
+    onlineState.practiceCurrent[i] = '';
   } else {
-    let prev = idx - 1;
-    while (prev >= 0 && onlineState.practiceLocked[prev]) prev--;
-    if (prev >= 0) {
-      onlineState.practiceActiveIdx = prev;
-      onlineState.practiceCurrent[prev] = '';
-    }
+    let j = i - 1;
+    while (j >= 0 && onlineState.practiceLocked[j]) j--;
+    if (j >= 0) { onlineState.practiceActiveIdx = j; onlineState.practiceCurrent[j] = ''; }
   }
   owRenderCells();
 }
 
 function owSubmit() {
-  const v = validate(onlineState.practiceCurrent);
+  const tokens = onlineState.practiceCurrent;
+  const v = validate(tokens);
   const fb = document.getElementById('ow-practice-feedback');
   if (!v.ok) {
-    fb.textContent = v.msg; fb.className = 'feedback err';
+    if (fb) { fb.textContent = v.msg; fb.className = 'feedback err'; }
     return;
   }
-  const isWin = onlineState.practiceCurrent.every((c, i) => c === onlineState.practiceSecret[i]);
+  const hints = getHints(tokens, onlineState.practiceSecret);
+  const isWin = tokens.every((c, i) => c === onlineState.practiceSecret[i]);
   if (isWin) {
-    fb.textContent = '정답! 🎉'; fb.className = 'feedback win';
-    setTimeout(owNewProblem, 800);
+    if (fb) { fb.textContent = '🎉 정답! 새 문제 출제 중...'; fb.className = 'feedback win'; }
+    setTimeout(() => owNewProblem(), 1000);
   } else {
-    const hints = getHints(onlineState.practiceCurrent, onlineState.practiceSecret);
     const s = hints.filter(h => h === 'strike').length;
     const b = hints.filter(h => h === 'ball').length;
-    fb.textContent = `${s}S · ${b}B`; fb.className = 'feedback';
-    // 스트라이크 칸 잠그기
+    if (fb) { fb.textContent = `${s}S · ${b}B`; fb.className = 'feedback'; }
+    // strike 위치 잠금 + 나머지 비우기 (간단 버전)
     for (let i = 0; i < hints.length; i++) {
       if (hints[i] === 'strike') onlineState.practiceLocked[i] = true;
     }
-    onlineState.practiceCurrent = onlineState.practiceSecret.map((sv, i) =>
-      onlineState.practiceLocked[i] ? sv : ''
-    );
+    for (let i = 0; i < onlineState.practiceCurrent.length; i++) {
+      if (!onlineState.practiceLocked[i]) onlineState.practiceCurrent[i] = '';
+    }
     let firstUnlocked = onlineState.practiceLocked.findIndex(l => !l);
     if (firstUnlocked < 0) firstUnlocked = 0;
     onlineState.practiceActiveIdx = firstUnlocked;
@@ -4484,59 +4843,62 @@ function owSubmit() {
   }
 }
 
-// ── NEW CHALLENGER 배너 ──
-function showChallengerBanner(opClassName) {
+// ────────────────────────────────────────────────
+//  매치 시작 배너
+// ────────────────────────────────────────────────
+
+function showMatchStartBanner() {
   const banner = document.getElementById('online-match-banner');
-  document.getElementById('omb-sub').textContent = `${opClassName}이(가) 도전했어요!`;
+  document.getElementById('omb-sub').textContent = '경기를 시작합니다';
   banner.classList.add('show');
 }
-function hideChallengerBanner() {
+function hideMatchStartBanner() {
   document.getElementById('online-match-banner').classList.remove('show');
 }
 
-// ── 매치 화면 진입 (vs-screen 재사용) ──
+// ────────────────────────────────────────────────
+//  매치 화면 진입
+// ────────────────────────────────────────────────
+
 function enterMatchScreen(payload) {
-  document.getElementById('online-waiting').style.display = 'none';
-  document.getElementById('online-class-select').style.display = 'none';
+  document.getElementById('online-room').style.display = 'none';
+  document.getElementById('online-entry').style.display = 'none';
   document.getElementById('vs-screen').style.display = 'block';
   document.getElementById('vs-result-overlay').classList.remove('show');
   document.getElementById('vs-A-end-overlay')?.classList.remove('show');
   document.getElementById('vs-B-end-overlay')?.classList.remove('show');
-  document.querySelector('.spectator-banner')?.classList.remove('show');
 
-  // 키패드는 일단 비활성 (READY/카운트다운 단계에서)
-  // playing 단계가 되면 match_state 핸들러에서 재바인딩됨
+  // 키패드는 일단 비활성 (READY/카운트다운 단계)
   ['A', 'B'].forEach(side => {
     const pad = document.querySelector(`.vs-side.${side} .vs-keypad`);
     if (pad) pad.classList.add('spectator-mode');
   });
 
-  // 사이드 라벨 업데이트 (1반 vs 2반 식)
   updateMatchSideLabels(payload);
-
   renderMatchSelf(payload);
 }
 
-// ── READY 오버레이 ──
+// ────────────────────────────────────────────────
+//  READY 오버레이
+// ────────────────────────────────────────────────
+
 let readyTimeoutClientId = null;
 
 function showReadyOverlay(payload) {
-  // 양쪽 라벨 표시
-  const aClass = payload.side === 'A' ? payload.myClass : payload.opClass;
-  const bClass = payload.side === 'A' ? payload.opClass : payload.myClass;
-  document.getElementById('ready-class-a').textContent = '🔴 ' + aClass;
-  document.getElementById('ready-class-b').textContent = '🔵 ' + bClass;
-  // 본인 사이드 강조하려면 cell 자체에 me-side 클래스 추가
+  const aName = payload.side === 'A' ? payload.myName : payload.opName;
+  const bName = payload.side === 'A' ? payload.opName : payload.myName;
+  document.getElementById('ready-class-a').textContent = '🔴 ' + aName;
+  document.getElementById('ready-class-b').textContent = '🔵 ' + bName;
   document.getElementById('ready-cell-a').classList.toggle('me-side', payload.side === 'A');
   document.getElementById('ready-cell-b').classList.toggle('me-side', payload.side === 'B');
 
   // 본인 버튼 초기화
   const btn = document.getElementById('ready-btn-main');
+  btn.style.display = '';
   btn.classList.remove('done');
   btn.textContent = '🟢 준비완료';
   btn.disabled = false;
 
-  // 30초 타임아웃 표시 (서버가 진짜 타임아웃 관리하지만, 시각적 표시용)
   let secondsLeft = 30;
   const timeoutEl = document.getElementById('ready-timeout');
   timeoutEl.textContent = `⏱ ${secondsLeft}초 안에 준비하세요`;
@@ -4557,12 +4919,9 @@ function showReadyOverlay(payload) {
 }
 
 function updateReadyOverlay(payload) {
-  // payload.myReady, oppReady 사용
   const myReady = payload.myReady;
   const oppReady = payload.oppReady;
   const mySide = payload.side;
-
-  // A/B 사이드 ready 상태를 표시
   const aReady = mySide === 'A' ? myReady : oppReady;
   const bReady = mySide === 'A' ? oppReady : myReady;
 
@@ -4571,7 +4930,6 @@ function updateReadyOverlay(payload) {
   document.getElementById('ready-cell-b').classList.toggle('ready', bReady);
   document.getElementById('ready-state-b').textContent = bReady ? '✓ 준비완료' : '대기 중';
 
-  // 본인 버튼 상태
   const btn = document.getElementById('ready-btn-main');
   if (myReady) {
     btn.classList.add('done');
@@ -4594,29 +4952,27 @@ function onlineToggleReady() {
   if (!onlineState.matchData) return;
   if (onlineState.matchData.phase !== 'ready') return;
   const newReady = !onlineState.matchData.myReady;
-  onlineSocket.emit('set_ready', { ready: newReady });
+  onlineSocket.emit('match:setReady', { ready: newReady });
 }
 
 function onlineCancelMatch() {
-  if (!confirm('매치를 취소할까요?')) return;
-  // exit_class를 보내서 슬롯에서 나가고, 서버는 이 상태를 forfeit로 처리할 것
-  // 하지만 사용자는 다시 대기 화면에 머무는 게 자연스러움 → 서버에 별도 cancel 보내기보다는
-  // 그냥 메뉴로 빠지는 흐름. 또는 단순히 disconnect 처리.
-  // 가장 깔끔한 방법: 서버에 exit_class 보내면 매치는 forfeit로 종료되고 슬롯 비워짐.
-  onlineSocket.emit('exit_class');
+  if (!confirm('매치를 취소하고 방을 나갈까요?')) return;
+  onlineSocket.emit('room:leave');
 }
 
-// ── 카운트다운 오버레이 ──
+// ────────────────────────────────────────────────
+//  카운트다운
+// ────────────────────────────────────────────────
+
 function showCountdown(label) {
   const ov = document.getElementById('countdown-overlay');
   const num = document.getElementById('countdown-num');
   num.textContent = label;
-  num.className = 'countdown-num'; // reset
+  num.className = 'countdown-num';
   if (label === '3') num.classList.add('three');
   else if (label === '2') num.classList.add('two');
   else if (label === '1') num.classList.add('one');
   else if (label === 'GO!') num.classList.add('go');
-  // 애니메이션 재시작 트릭
   num.style.animation = 'none';
   void num.offsetWidth;
   num.style.animation = '';
@@ -4627,40 +4983,13 @@ function hideCountdownOverlay() {
   document.getElementById('countdown-overlay').classList.remove('show');
 }
 
-// ── 관전자용 ready 정보 (본인 버튼 없는 변형) ──
-function showSpectatorReadyInfo(payload) {
-  // payload: { aClass, bClass, aReady, bReady, phase, ... }
-  document.getElementById('ready-class-a').textContent = '🔴 ' + payload.aClass;
-  document.getElementById('ready-class-b').textContent = '🔵 ' + payload.bClass;
-  document.getElementById('ready-cell-a').classList.toggle('ready', payload.aReady);
-  document.getElementById('ready-state-a').textContent = payload.aReady ? '✓ 준비완료' : '대기 중';
-  document.getElementById('ready-cell-b').classList.toggle('ready', payload.bReady);
-  document.getElementById('ready-state-b').textContent = payload.bReady ? '✓ 준비완료' : '대기 중';
-  // 본인 버튼은 관전자에겐 무의미하니 숨김
-  document.getElementById('ready-btn-main').style.display = 'none';
-  // 취소 버튼도 관전자는 그냥 관전 종료 의미로 활용 가능 — 유지
-  document.querySelector('#ready-overlay .ready-btn.cancel').textContent = '관전 종료';
-  document.querySelector('#ready-overlay .ready-btn.cancel').onclick = () => {
-    onlineSocket.emit('leave_spectate');
-    document.querySelector('#ready-overlay .ready-btn.cancel').onclick = onlineCancelMatch;
-  };
-  document.getElementById('ready-overlay').classList.add('show');
-}
-
-function hideSpectatorReadyInfo() {
-  document.getElementById('ready-overlay').classList.remove('show');
-  // 다음 매치를 위해 버튼 복원
-  document.getElementById('ready-btn-main').style.display = '';
-  const cancelBtn = document.querySelector('#ready-overlay .ready-btn.cancel');
-  cancelBtn.textContent = '취소';
-  cancelBtn.onclick = onlineCancelMatch;
-}
+// ────────────────────────────────────────────────
+//  매치 라벨 / 키패드 / 렌더
+// ────────────────────────────────────────────────
 
 function updateMatchSideLabels(payload) {
-  // payload: { side: 'A'|'B', myClass, opClass, mine, opp }
-  // vs 화면의 .vs-side-name을 반 이름으로 교체
-  const aName = payload.side === 'A' ? payload.myClass : payload.opClass;
-  const bName = payload.side === 'A' ? payload.opClass : payload.myClass;
+  const aName = payload.side === 'A' ? payload.myName : payload.opName;
+  const bName = payload.side === 'A' ? payload.opName : payload.myName;
   const aLabel = document.querySelector('.vs-side.A .vs-side-name');
   const bLabel = document.querySelector('.vs-side.B .vs-side-name');
   if (aLabel) aLabel.textContent = `🔴 ${aName}`;
@@ -4668,9 +4997,6 @@ function updateMatchSideLabels(payload) {
 }
 
 function rebindMatchKeypad(isSpectator) {
-  // 키패드 인라인 핸들러는 vsPress/vsDel/vsSubmit/vsShowHint를 호출하는데,
-  // 그 함수들이 gameMode === 'online'일 때 자동으로 서버로 emit하도록 분기됨.
-  // 여기서는 시각적 활성/비활성(.spectator-mode 클래스)만 토글하면 됨.
   ['A', 'B'].forEach(side => {
     const pad = document.querySelector(`.vs-side.${side} .vs-keypad`);
     if (!pad) return;
@@ -4678,32 +5004,23 @@ function rebindMatchKeypad(isSpectator) {
       pad.classList.add('spectator-mode');
       return;
     }
-    // 온라인 모드: 본인 사이드만 활성, 상대 사이드는 비활성
     if (gameMode === 'online') {
       const isMySide = (side === onlineState.matchSide);
       pad.classList.toggle('spectator-mode', !isMySide);
     } else {
-      // 로컬 대결모드: 양쪽 다 활성
       pad.classList.remove('spectator-mode');
     }
   });
 }
 
-// ── 본인 매치 상태 렌더 ──
 function renderMatchSelf(payload) {
   const mySide = payload.side;
   const opSide = mySide === 'A' ? 'B' : 'A';
-
-  // 본인 측 패널 = mySide의 vs-side, 상대 측 패널 = opSide의 vs-side
-  // 이렇게 하면 mySide가 'B'일 때도 화면 좌측은 그냥 'A'(=상대)를 보여주게 됨.
-  // 더 간단하게: payload.mine은 항상 mySide의 vs-side에, payload.opp는 opSide의 vs-side에 그림.
-
   applyPlayerToSide(mySide, payload.mine, false);
   applyPlayerToSide(opSide, payload.opp, true);
 }
 
 function applyPlayerToSide(side, p, isOpp) {
-  // 점수, 레벨, 연승, 타이머 등 기본 표시
   const lvlEl = document.getElementById(`vs-${side}-lvl`);
   if (lvlEl) lvlEl.textContent = 'LV.' + LEVELS[p.level].num;
   const lvlSubEl = document.getElementById(`vs-${side}-lvl-sub`);
@@ -4711,10 +5028,8 @@ function applyPlayerToSide(side, p, isOpp) {
   const scoreEl = document.getElementById(`vs-${side}-score`);
   if (scoreEl) scoreEl.textContent = p.totalScore;
 
-  // 점수 규칙
   vsRenderRulesForLevel(side, p.level);
 
-  // 연승 점들
   const dotsEl = document.getElementById(`vs-${side}-streak-dots`);
   if (dotsEl) {
     dotsEl.innerHTML = '';
@@ -4727,7 +5042,6 @@ function applyPlayerToSide(side, p, isOpp) {
   const cntEl = document.getElementById(`vs-${side}-streak-count`);
   if (cntEl) cntEl.textContent = `${p.streak}/${VS_LEVELUP_STREAK}`;
 
-  // 타이머
   const t = document.getElementById(`vs-${side}-timer`);
   if (t) {
     const m = Math.floor(p.remainSec / 60);
@@ -4737,7 +5051,6 @@ function applyPlayerToSide(side, p, isOpp) {
     t.classList.toggle('ended', !!p.ended);
   }
 
-  // 셀
   const cellsEl = document.getElementById(`vs-${side}-cells`);
   if (cellsEl) {
     cellsEl.innerHTML = '';
@@ -4753,10 +5066,8 @@ function applyPlayerToSide(side, p, isOpp) {
     }
   }
 
-  // 히스토리
   vsRenderHistoryFromLog(side, p.historyLog || [], LEVELS[p.level].slots);
 
-  // 시간 종료 오버레이
   if (p.ended) {
     const ov = document.getElementById(`vs-${side}-end-overlay`);
     if (ov) {
@@ -4766,7 +5077,6 @@ function applyPlayerToSide(side, p, isOpp) {
   }
 }
 
-// 기존 vsRenderRules는 vsP[side]를 참조하므로 레벨 인자 받는 변형
 function vsRenderRulesForLevel(side, lv) {
   const el = document.getElementById(`vs-${side}-rules`);
   if (!el) return;
@@ -4782,7 +5092,6 @@ function vsRenderRulesForLevel(side, lv) {
   el.innerHTML = `<span class="rule-label">기준</span>${items.join('')}`;
 }
 
-// 히스토리 렌더 (vsRenderHistory와 비슷하지만 인자로 받음)
 function vsRenderHistoryFromLog(side, log, slots) {
   const list = document.getElementById(`vs-${side}-history-list`);
   if (!list) return;
@@ -4804,48 +5113,16 @@ function vsRenderHistoryFromLog(side, log, slots) {
   }
 }
 
-// ── 관전 화면 ──
-function enterSpectateScreen(payload) {
-  document.getElementById('online-waiting').style.display = 'none';
-  document.getElementById('vs-screen').style.display = 'block';
-  document.getElementById('vs-result-overlay').classList.remove('show');
-  // 양쪽 다 비활성
-  ['A', 'B'].forEach(side => {
-    const pad = document.querySelector(`.vs-side.${side} .vs-keypad`);
-    if (pad) pad.classList.add('spectator-mode');
-  });
-  // 관전 배너
-  let banner = document.querySelector('.spectator-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.className = 'spectator-banner';
-    banner.textContent = '👀 관전 중 - 종료하려면 ESC 또는 뒤로';
-    document.body.appendChild(banner);
-  }
-  banner.classList.add('show');
+// ────────────────────────────────────────────────
+//  매치 종료 모달
+// ────────────────────────────────────────────────
 
-  // 사이드 라벨
-  const aLabel = document.querySelector('.vs-side.A .vs-side-name');
-  const bLabel = document.querySelector('.vs-side.B .vs-side-name');
-  if (aLabel) aLabel.textContent = `🔴 ${payload.aClass}`;
-  if (bLabel) bLabel.textContent = `🔵 ${payload.bClass}`;
-
-  renderSpectator(payload);
-}
-
-function renderSpectator(payload) {
-  applyPlayerToSide('A', payload.a, true);
-  applyPlayerToSide('B', payload.b, true);
-}
-
-// ── 매치 종료 처리 ──
 function showMatchEndOverlay(payload) {
-  // payload: { aScore, bScore, winner, aClass, bClass, mySide?, spectator?, forfeit? }
+  // payload: { aScore, bScore, winner, aName, bName, mySide?, forfeit? }
   const modal = document.getElementById('online-post-match');
   const title = document.getElementById('opm-title');
   const result = document.getElementById('opm-result');
-  const btnSpec = document.getElementById('opm-btn-spectate');
-  const btnWait = document.getElementById('opm-btn-wait');
+  const rematchBtn = document.getElementById('opm-btn-rematch');
 
   let titleText, resultHtml;
   if (payload.forfeit) {
@@ -4853,47 +5130,46 @@ function showMatchEndOverlay(payload) {
     resultHtml = `상대가 나갔어요. <span class="winner">자동 승리</span>`;
   } else if (!payload.winner) {
     titleText = '🤝 무승부';
-    resultHtml = `${payload.aClass} ${payload.aScore} : ${payload.bScore} ${payload.bClass}`;
+    resultHtml = `${escapeHtml(payload.aName)} ${payload.aScore} : ${payload.bScore} ${escapeHtml(payload.bName)}`;
   } else {
-    const winnerName = payload.winner === 'A' ? payload.aClass : payload.bClass;
-    titleText = '🏁 매치 종료';
-    resultHtml = `<span class="winner">🏆 ${winnerName} 승리!</span><br>${payload.aClass} ${payload.aScore} : ${payload.bScore} ${payload.bClass}`;
+    const winnerName = payload.winner === 'A' ? payload.aName : payload.bName;
+    const iWon = payload.winner === payload.mySide;
+    titleText = iWon ? '🏆 승리!' : '🏁 매치 종료';
+    resultHtml = `<span class="winner">🏆 ${escapeHtml(winnerName)} 승리!</span><br>${escapeHtml(payload.aName)} ${payload.aScore} : ${payload.bScore} ${escapeHtml(payload.bName)}`;
   }
 
   title.textContent = titleText;
   result.innerHTML = resultHtml;
 
-  if (payload.spectator) {
-    // 관전자: 그냥 대기로 복귀 버튼만
-    btnSpec.style.display = 'none';
-    btnWait.textContent = '대기 화면으로';
+  // 다시하기 버튼은 forfeit이 아닐 때만 보이게 (forfeit이면 상대가 떠난 거라 다시하기 의미 없음)
+  if (payload.forfeit) {
+    rematchBtn.style.display = 'none';
   } else {
-    // 플레이어
-    const iWon = payload.winner === payload.mySide;
-    if (iWon) {
-      btnWait.textContent = '👑 다음 도전 기다리기';
-      btnSpec.style.display = 'none';
-    } else {
-      // 패자 옵션: 관전 가능하면 표시 (사실 양쪽 다 끝났으면 관전할 게 없음)
-      // 우리 흐름에선 매치가 끝났으니 관전 대상도 없음. 대기로 복귀가 자연스러움.
-      btnWait.textContent = '대기 화면으로';
-      btnSpec.style.display = 'none';
-    }
+    rematchBtn.style.display = '';
+    rematchBtn.textContent = onlineState.isHost ? '🔁 다시 하기' : '🔁 방으로 돌아가기';
   }
   modal.classList.add('show');
 }
 
 function onlinePostMatch(action) {
   document.getElementById('online-post-match').classList.remove('show');
-  // 종료 오버레이도 숨기기
   document.getElementById('vs-A-end-overlay')?.classList.remove('show');
   document.getElementById('vs-B-end-overlay')?.classList.remove('show');
-  document.querySelector('.spectator-banner')?.classList.remove('show');
-  onlineSocket.emit('post_match', { action });
+  if (action === 'leave') {
+    // 방 나가기: 서버에 leave 보내고 메뉴로
+    if (onlineSocket && onlineSocket.connected) {
+      onlineSocket.emit('room:leave');
+    }
+    document.getElementById('vs-screen').style.display = 'none';
+    document.getElementById('online-room').style.display = 'none';
+    document.getElementById('online-entry').style.display = 'none';
+    document.getElementById('level-select').style.display = 'flex';
+    resetOnlineState();
+    return;
+  }
+  // rematch: 서버에 알리고 rematch_ready/return_to_room 응답 대기
+  onlineSocket.emit('post_match', { action: 'rematch' });
 }
-
-// VS 모드 키보드 입력 차단 부분에 online도 추가하기 위해
-// 기존 코드에 vs-screen이 보이면 키보드 무시하는 로직이 있음. 그대로 OK.
 
 </script>
 </body>
